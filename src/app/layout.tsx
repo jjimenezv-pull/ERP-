@@ -21,7 +21,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <div className="min-h-screen bg-background">
           <MainNav />
-          <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <main className="mx-auto w-full max-w-[1800px] px-6 py-6 lg:px-10">
             {children}
           </main>
         </div>

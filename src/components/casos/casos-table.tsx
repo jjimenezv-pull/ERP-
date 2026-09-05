@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format } from "date-fns";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -23,21 +25,42 @@ import {
 } from "@/components/ui/select";
 import type { Caso, EstadoProveedor } from "@/lib/supabase/types";
 import { updateCasoProveedor } from "@/app/casos/actions";
+import { cn } from "@/lib/utils";
 
 const ESTADOS_PROVEEDOR: EstadoProveedor[] = ["N/A", "Pendiente", "En revisión", "Resuelto"];
 
-const ESTADO_INTERNO_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
-  "En curso (asignada)": "default",
-  "En espera": "secondary",
-  Cerrado: "outline",
+const ESTADO_INTERNO_CLASS: Record<string, string> = {
+  "En espera": "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
+  "En curso (asignada)": "border-transparent bg-[var(--status-curso)] text-[var(--status-curso-foreground)]",
+  Cerrado: "border-transparent bg-[var(--status-cerrado)] text-[var(--status-cerrado-foreground)]",
 };
 
-const ESTADO_PROVEEDOR_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
-  "N/A": "outline",
-  Pendiente: "secondary",
-  "En revisión": "secondary",
-  Resuelto: "default",
+const ESTADO_PROVEEDOR_CLASS: Record<string, string> = {
+  "N/A": "",
+  Pendiente: "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
+  "En revisión": "border-transparent bg-[var(--status-revision)] text-[var(--status-revision-foreground)]",
+  Resuelto: "border-transparent bg-[var(--status-curso)] text-[var(--status-curso-foreground)]",
 };
+
+// Whitelist de columnas ordenables: debe coincidir con la de src/app/casos/page.tsx.
+const SORTABLE_COLUMNS = [
+  "id_glpi",
+  "titulo",
+  "estado_interno",
+  "categoria",
+  "solicitante",
+  "tecnico_asignado",
+  "fecha_apertura",
+  "fecha_cierre",
+  "urgencia",
+  "estado_proveedor",
+] as const;
+
+type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
+type OrderDir = "asc" | "desc";
+
+const DEFAULT_ORDER_BY: SortableColumn = "fecha_apertura";
+const DEFAULT_ORDER_DIR: OrderDir = "desc";
 
 function formatFecha(value: string | null) {
   if (!value) return "—";
@@ -55,13 +78,72 @@ function cleanText(value: string | null) {
   return value.replace(/\s*<br\s*\/?>\s*/gi, ", ");
 }
 
+function SortableHead({
+  column,
+  orderBy,
+  orderDir,
+  onSort,
+  className,
+  children,
+}: {
+  column: SortableColumn;
+  orderBy: SortableColumn;
+  orderDir: OrderDir;
+  onSort: (column: SortableColumn) => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const active = orderBy === column;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        className="flex items-center gap-1 whitespace-nowrap font-medium text-muted-foreground hover:text-foreground"
+      >
+        {children}
+        {active ? (
+          orderDir === "asc" ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground/40" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
 export function CasosTable({ casos }: { casos: Caso[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [rows, setRows] = useState(casos);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setRows(casos);
   }, [casos]);
+
+  const orderByParam = searchParams.get("orderBy");
+  const orderBy: SortableColumn = (SORTABLE_COLUMNS as readonly string[]).includes(orderByParam ?? "")
+    ? (orderByParam as SortableColumn)
+    : DEFAULT_ORDER_BY;
+  const orderDir: OrderDir = searchParams.get("orderDir") === "asc" ? "asc" : DEFAULT_ORDER_DIR;
+
+  function handleSort(column: SortableColumn) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (orderBy === column) {
+      params.set("orderDir", orderDir === "asc" ? "desc" : "asc");
+    } else {
+      params.set("orderBy", column);
+      params.set("orderDir", "desc");
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   function persist(id: string, data: Parameters<typeof updateCasoProveedor>[1]) {
     startTransition(async () => {
@@ -96,21 +178,46 @@ export function CasosTable({ casos }: { casos: Caso[] }) {
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
+    <Table containerClassName="max-h-[70vh] rounded-md border">
+      <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
-            <TableHead>ID GLPI</TableHead>
-            <TableHead>Título</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead>Categoría</TableHead>
-            <TableHead>Solicitante</TableHead>
-            <TableHead>Técnico</TableHead>
-            <TableHead>F. Apertura</TableHead>
-            <TableHead>F. Cierre</TableHead>
-            <TableHead>Urgencia</TableHead>
+            <SortableHead column="id_glpi" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              ID GLPI
+            </SortableHead>
+            <SortableHead column="titulo" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Título
+            </SortableHead>
+            <SortableHead column="estado_interno" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Estado
+            </SortableHead>
+            <SortableHead column="categoria" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Categoría
+            </SortableHead>
+            <SortableHead column="solicitante" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Solicitante
+            </SortableHead>
+            <SortableHead column="tecnico_asignado" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Técnico
+            </SortableHead>
+            <SortableHead column="fecha_apertura" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              F. Apertura
+            </SortableHead>
+            <SortableHead column="fecha_cierre" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              F. Cierre
+            </SortableHead>
+            <SortableHead column="urgencia" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Urgencia
+            </SortableHead>
             <TableHead className="min-w-[180px]">Caso escalado proveedor</TableHead>
-            <TableHead className="min-w-[160px]">Estado proveedor</TableHead>
+            <SortableHead
+              column="estado_proveedor"
+              orderBy={orderBy}
+              orderDir={orderDir}
+              onSort={handleSort}
+              className="min-w-[160px]"
+            >
+              Estado proveedor
+            </SortableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -121,7 +228,10 @@ export function CasosTable({ casos }: { casos: Caso[] }) {
                 {caso.titulo ?? "—"}
               </TableCell>
               <TableCell>
-                <Badge variant={ESTADO_INTERNO_VARIANT[caso.estado_interno] ?? "outline"}>
+                <Badge
+                  variant="outline"
+                  className={cn(ESTADO_INTERNO_CLASS[caso.estado_interno])}
+                >
                   {caso.estado_interno}
                 </Badge>
               </TableCell>
@@ -161,7 +271,9 @@ export function CasosTable({ casos }: { casos: Caso[] }) {
                   <SelectContent>
                     {ESTADOS_PROVEEDOR.map((estado) => (
                       <SelectItem key={estado} value={estado}>
-                        <Badge variant={ESTADO_PROVEEDOR_VARIANT[estado]}>{estado}</Badge>
+                        <Badge variant="outline" className={cn(ESTADO_PROVEEDOR_CLASS[estado])}>
+                          {estado}
+                        </Badge>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -171,6 +283,5 @@ export function CasosTable({ casos }: { casos: Caso[] }) {
           ))}
         </TableBody>
       </Table>
-    </div>
   );
 }
