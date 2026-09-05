@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,7 +65,9 @@ const DEFAULT_ORDER_DIR: OrderDir = "desc";
 function formatFecha(value: string | null) {
   if (!value) return "—";
   try {
-    return format(new Date(value), "dd/MM/yyyy");
+    // parseISO evita el corrimiento de un día que da `new Date("yyyy-MM-dd")`
+    // (lo interpreta como UTC) al formatear en una zona horaria negativa.
+    return format(parseISO(value), "dd/MM/yyyy");
   } catch {
     return value;
   }

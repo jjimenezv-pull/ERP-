@@ -20,10 +20,11 @@ export function resolveDateRange(
   desde: string | undefined,
   hasta: string | undefined
 ): { vista: Vista | "custom"; desde: string | null; hasta: string | null } {
+  if (vista === "semanal" || vista === "mensual" || vista === "historico") {
+    return { vista, ...defaultRangeForVista(vista) };
+  }
   if (desde || hasta) {
     return { vista: "custom", desde: desde ?? null, hasta: hasta ?? null };
   }
-  const v: Vista = vista === "mensual" || vista === "historico" ? vista : "semanal";
-  const range = defaultRangeForVista(v);
-  return { vista: v, ...range };
+  return { vista: "semanal", ...defaultRangeForVista("semanal") };
 }

@@ -6,7 +6,7 @@ import { format } from "date-fns";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { defaultRangeForVista, resolveDateRange, type Vista } from "@/lib/date-range";
+import { resolveDateRange, type Vista } from "@/lib/date-range";
 
 export function DashboardFilters() {
   const router = useRouter();
@@ -22,9 +22,6 @@ export function DashboardFilters() {
   function selectVista(next: Vista) {
     const params = new URLSearchParams();
     params.set("vista", next);
-    const range = defaultRangeForVista(next);
-    if (range.desde) params.set("desde", range.desde);
-    if (range.hasta) params.set("hasta", range.hasta);
     router.push(`${pathname}?${params.toString()}`);
   }
 
