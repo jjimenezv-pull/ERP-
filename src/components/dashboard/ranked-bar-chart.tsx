@@ -12,30 +12,42 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 
 const MAX_LABEL_LENGTH = 18;
 
-// Nombres largos desbordan el ancho del eje Y y Recharts los parte en varias líneas.
-// Se recorta la etiqueta visible y se conserva el nombre completo para el tooltip.
-function truncateNombre(nombre: string) {
-  return nombre.length > MAX_LABEL_LENGTH
-    ? `${nombre.slice(0, MAX_LABEL_LENGTH - 1).trimEnd()}…`
-    : nombre;
+// Etiquetas largas desbordan el ancho del eje Y y Recharts las parte en varias líneas.
+// Se recorta la etiqueta visible y se conserva el texto completo para el tooltip.
+function truncateLabel(label: string) {
+  return label.length > MAX_LABEL_LENGTH
+    ? `${label.slice(0, MAX_LABEL_LENGTH - 1).trimEnd()}…`
+    : label;
 }
 
-export function TopSolicitantesChart({ data }: { data: { nombre: string; count: number }[] }) {
+export function RankedBarChart({
+  title,
+  description,
+  data,
+  emptyMessage = "Sin casos en el periodo.",
+  valueLabel = "Casos",
+}: {
+  title: string;
+  description: string;
+  data: { label: string; value: number }[];
+  emptyMessage?: string;
+  valueLabel?: string;
+}) {
   const chartData = [...data]
-    .sort((a, b) => a.count - b.count) // ascendente: el más alto queda arriba en barras horizontales
-    .map((d) => ({ ...d, nombreCorto: truncateNombre(d.nombre) }));
+    .sort((a, b) => a.value - b.value) // ascendente: el más alto queda arriba en barras horizontales
+    .map((d) => ({ ...d, labelCorto: truncateLabel(d.label) }));
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Top 5 solicitantes</CardTitle>
-        <CardDescription>Con más casos abiertos en el periodo seleccionado</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {chartData.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Sin casos en el periodo.</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <ChartContainer config={{ count: { label: "Casos" } }} className="h-[260px] w-full">
+          <ChartContainer config={{ value: { label: valueLabel } }} className="h-[260px] w-full">
             <BarChart data={chartData} layout="vertical" margin={{ left: 8 }}>
               <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
               <XAxis
@@ -47,7 +59,7 @@ export function TopSolicitantesChart({ data }: { data: { nombre: string; count: 
               />
               <YAxis
                 type="category"
-                dataKey="nombreCorto"
+                dataKey="labelCorto"
                 tickLine={false}
                 axisLine={{ stroke: "var(--chart-axis)" }}
                 tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
@@ -56,12 +68,12 @@ export function TopSolicitantesChart({ data }: { data: { nombre: string; count: 
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    labelFormatter={(_, payload) => payload?.[0]?.payload?.nombre}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.label}
                   />
                 }
                 cursor={{ fill: "var(--muted)" }}
               />
-              <Bar dataKey="count" fill="var(--chart-1)" radius={[0, 4, 4, 0]} maxBarSize={28} />
+              <Bar dataKey="value" fill="var(--chart-1)" radius={[0, 4, 4, 0]} maxBarSize={28} />
             </BarChart>
           </ChartContainer>
         )}
