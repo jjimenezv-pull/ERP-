@@ -74,11 +74,16 @@ export function CasosFilters() {
       ? { from: desde ? new Date(desde) : undefined, to: hasta ? new Date(hasta) : undefined }
       : undefined;
 
-  const hasFilters =
-    estadoInterno !== "todos" || estadoProveedor !== "todos" || desde || hasta || qParam;
+  const activeFilterCount = [
+    estadoInterno !== "todos",
+    estadoProveedor !== "todos",
+    Boolean(desde),
+    Boolean(hasta),
+    Boolean(qParam),
+  ].filter(Boolean).length;
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 xl:flex-row xl:flex-wrap xl:items-center">
       <div className="flex flex-wrap items-center gap-3">
         <Select value={columna} onValueChange={(v) => setParam("columna", v === "todas" ? undefined : v)}>
           <SelectTrigger className="w-[190px]">
@@ -104,7 +109,7 @@ export function CasosFilters() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 xl:ml-3 xl:border-l xl:pl-3">
         <Select value={estadoInterno} onValueChange={(v) => setParam("estado_interno", v === "todos" ? undefined : v)}>
           <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="Estado interno" />
@@ -154,13 +159,17 @@ export function CasosFilters() {
             router.push(`${pathname}?${params.toString()}`);
           }}
         />
-
-        {hasFilters && (
-          <Button variant="ghost" onClick={() => router.push(pathname)}>
-            Limpiar filtros
-          </Button>
-        )}
       </div>
+
+      {activeFilterCount > 0 && (
+        <Button
+          variant="ghost"
+          className="xl:ml-auto"
+          onClick={() => router.push(pathname)}
+        >
+          Limpiar filtros ({activeFilterCount})
+        </Button>
+      )}
     </div>
   );
 }

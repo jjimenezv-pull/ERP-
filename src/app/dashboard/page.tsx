@@ -85,7 +85,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <DashboardFilters />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <OpenVsClosedChart abiertos={abiertosCount} cerrados={cerradosCount} />
         <ResolutionTimeCard promedioDias={promedioDias} casosConsiderados={duraciones.length} />
         <EstadoProveedorChart data={estadoCounts} />

@@ -15,7 +15,7 @@ export function MainNav() {
 
   return (
     <header className="border-b bg-primary">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-14 w-full max-w-[1800px] items-center gap-6 px-6 lg:px-10">
         <span className="flex items-center gap-2 font-semibold text-primary-foreground">
           <LifeBuoy className="h-5 w-5" />
           Soporte ERP

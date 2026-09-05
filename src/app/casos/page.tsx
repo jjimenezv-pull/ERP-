@@ -14,6 +14,20 @@ const COLUMNAS_TEXTO_BUSCABLES = [
   "ubicacion",
 ] as const;
 
+// Debe coincidir con SORTABLE_COLUMNS en src/components/casos/casos-table.tsx.
+const COLUMNAS_ORDENABLES = [
+  "id_glpi",
+  "titulo",
+  "estado_interno",
+  "categoria",
+  "solicitante",
+  "tecnico_asignado",
+  "fecha_apertura",
+  "fecha_cierre",
+  "urgencia",
+  "estado_proveedor",
+] as const;
+
 interface CasosPageProps {
   searchParams: {
     estado_interno?: string;
@@ -22,16 +36,23 @@ interface CasosPageProps {
     hasta?: string;
     columna?: string;
     q?: string;
+    orderBy?: string;
+    orderDir?: string;
   };
 }
 
 export default async function CasosPage({ searchParams }: CasosPageProps) {
   const supabase = createServerClient();
 
+  const orderBy = (COLUMNAS_ORDENABLES as readonly string[]).includes(searchParams.orderBy ?? "")
+    ? (searchParams.orderBy as (typeof COLUMNAS_ORDENABLES)[number])
+    : "fecha_apertura";
+  const orderDir = searchParams.orderDir === "asc" ? "asc" : "desc";
+
   let query = supabase
     .from("casos")
     .select("*")
-    .order("fecha_apertura", { ascending: false, nullsFirst: false });
+    .order(orderBy, { ascending: orderDir === "asc", nullsFirst: false });
 
   if (searchParams.estado_interno) {
     query = query.eq("estado_interno", searchParams.estado_interno as EstadoInterno);

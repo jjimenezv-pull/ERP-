@@ -43,7 +43,7 @@ export function EstadoProveedorChart({
           <p className="py-10 text-center text-sm text-muted-foreground">Sin casos en el periodo.</p>
         ) : (
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <ChartContainer config={{}} className="h-[220px] w-[220px]">
+            <ChartContainer config={{}} className="h-[220px] w-[220px] shrink-0">
               <PieChart>
                 <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="name" />} />
                 <Pie
@@ -52,7 +52,9 @@ export function EstadoProveedorChart({
                   nameKey="name"
                   innerRadius={55}
                   outerRadius={90}
-                  paddingAngle={2}
+                  // Con una sola porción (100%), Recharts calcula mal el ángulo del arco
+                  // si paddingAngle > 0 (queda como una línea en vez de un anillo completo).
+                  paddingAngle={chartData.length > 1 ? 2 : 0}
                   strokeWidth={2}
                   stroke="var(--card)"
                 >
