@@ -1,26 +1,35 @@
-import { differenceInCalendarDays, format, parseISO, subDays } from "date-fns";
-
 import { createServerClient } from "@/lib/supabase/server";
 import { resolveDateRange } from "@/lib/date-range";
 import {
   bucketResolutionTrend,
-  deltaVs,
+  bucketVolumeTrend,
+  computeBacklogAging,
+  computeDurationStats,
+  countByEstadoInterno,
   groupByCategoria,
+  groupByTecnico,
   groupByUrgencia,
-  previousRangeFor,
+  topOldestOpen,
 } from "@/lib/dashboard-metrics";
 import type { EstadoProveedor } from "@/lib/supabase/types";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
-import { OpenVsClosedChart } from "@/components/dashboard/open-vs-closed-chart";
+import { EstadoInternoChart } from "@/components/dashboard/estado-interno-chart";
+import { SlaKpiCard } from "@/components/dashboard/sla-kpi-card";
 import { ResolutionTimeCard } from "@/components/dashboard/resolution-time-card";
+import { BacklogAgingCard } from "@/components/dashboard/backlog-aging-card";
 import { EstadoProveedorChart } from "@/components/dashboard/estado-proveedor-chart";
 import { RankedBarChart } from "@/components/dashboard/ranked-bar-chart";
-import { ResolutionTrendChart } from "@/components/dashboard/resolution-trend-chart";
+import { TrendLineChart } from "@/components/dashboard/trend-line-chart";
+import { OldestOpenCasesList } from "@/components/dashboard/oldest-open-cases-list";
+import { RefreshButton } from "@/components/dashboard/refresh-button";
+import { ExportPptxButton } from "@/components/dashboard/export-pptx-button";
 
 export const dynamic = "force-dynamic";
 
 const ESTADOS_PROVEEDOR: EstadoProveedor[] = ["N/A", "Pendiente", "En revisión", "Resuelto"];
 const TREND_WEEKS = 8;
+const SLA_WINDOW_DAYS = 7;
+const SLA_TARGET_PCT = 90;
 
 interface DashboardPageProps {
   searchParams: { vista?: string; desde?: string; hasta?: string };
@@ -28,9 +37,11 @@ interface DashboardPageProps {
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const { desde, hasta } = resolveDateRange(searchParams.vista, searchParams.desde, searchParams.hasta);
-  const prevRange = previousRangeFor(desde, hasta);
+  const today = new Date();
 
   const supabase = createServerClient();
+
+  const allQuery = supabase.from("casos").select("*");
 
   let abiertosQuery = supabase.from("casos").select("*");
   if (desde) abiertosQuery = abiertosQuery.gte("fecha_apertura", desde);
@@ -40,32 +51,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   if (desde) cerradosQuery = cerradosQuery.gte("fecha_cierre", desde);
   if (hasta) cerradosQuery = cerradosQuery.lte("fecha_cierre", hasta);
 
-  let abiertosPrevQuery = supabase.from("casos").select("id", { count: "exact", head: true });
-  let cerradosPrevQuery = supabase
-    .from("casos")
-    .select("id", { count: "exact", head: true })
-    .not("fecha_cierre", "is", null);
-  if (prevRange) {
-    abiertosPrevQuery = abiertosPrevQuery.gte("fecha_apertura", prevRange.desde).lte("fecha_apertura", prevRange.hasta);
-    cerradosPrevQuery = cerradosPrevQuery.gte("fecha_cierre", prevRange.desde).lte("fecha_cierre", prevRange.hasta);
-  }
-
-  const trendDesde = format(subDays(new Date(), TREND_WEEKS * 7), "yyyy-MM-dd");
-  const trendQuery = supabase
-    .from("casos")
-    .select("fecha_apertura, fecha_cierre")
-    .not("fecha_cierre", "is", null)
-    .gte("fecha_cierre", trendDesde);
-
   const [
+    { data: all, error: errorAll },
     { data: abiertos, error: errorAbiertos },
     { data: cerrados, error: errorCerrados },
-    { count: abiertosPrevCount, error: errorAbiertosPrev },
-    { count: cerradosPrevCount, error: errorCerradosPrev },
-    { data: trendRows, error: errorTrend },
-  ] = await Promise.all([abiertosQuery, cerradosQuery, abiertosPrevQuery, cerradosPrevQuery, trendQuery]);
+  ] = await Promise.all([allQuery, abiertosQuery, cerradosQuery]);
 
-  const firstError = errorAbiertos ?? errorCerrados ?? errorAbiertosPrev ?? errorCerradosPrev ?? errorTrend;
+  const firstError = errorAll ?? errorAbiertos ?? errorCerrados;
   if (firstError) {
     return (
       <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -74,30 +66,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     );
   }
 
+  const allRows = all ?? [];
   const abiertosRows = abiertos ?? [];
   const cerradosRows = cerrados ?? [];
 
-  // a) Casos abiertos vs cerrados en el periodo, comparado con el periodo anterior
-  const abiertosCount = abiertosRows.length;
-  const cerradosCount = cerradosRows.length;
-  const abiertosDelta = prevRange ? deltaVs(abiertosCount, abiertosPrevCount ?? 0) : null;
-  const cerradosDelta = prevRange ? deltaVs(cerradosCount, cerradosPrevCount ?? 0) : null;
+  // Sección "Estado actual": snapshot de todo el histórico, no depende del periodo.
+  const estadoInternoCounts = countByEstadoInterno(allRows);
+  const backlogAging = computeBacklogAging(allRows, today);
+  const oldestOpen = topOldestOpen(allRows, today, 5);
+  const volumeTrend = bucketVolumeTrend(allRows, TREND_WEEKS).map((d) => ({ x: d.semana, y: d.casos }));
+  const resolutionTrend = bucketResolutionTrend(allRows, TREND_WEEKS).map((d) => ({
+    x: d.semana,
+    y: d.diasPromedio,
+  }));
 
-  // b) Tiempo promedio de resolución, sobre los casos cerrados en el periodo
-  const duraciones = cerradosRows
-    .filter((r) => r.fecha_apertura && r.fecha_cierre)
-    .map((r) => differenceInCalendarDays(parseISO(r.fecha_cierre!), parseISO(r.fecha_apertura!)))
-    .filter((dias) => dias >= 0);
-  const promedioDias =
-    duraciones.length > 0 ? duraciones.reduce((a, b) => a + b, 0) / duraciones.length : null;
+  // Tiempo de resolución / SLA: sí respeta el periodo seleccionado.
+  const durationStats = computeDurationStats(cerradosRows, SLA_WINDOW_DAYS);
 
-  // c) Distribución de casos abiertos en el periodo por estado_proveedor
-  const estadoCounts = ESTADOS_PROVEEDOR.map((estado) => ({
+  // Distribución dentro del periodo seleccionado.
+  const estadoProveedorCounts = ESTADOS_PROVEEDOR.map((estado) => ({
     estado,
     count: abiertosRows.filter((r) => (r.estado_proveedor ?? "N/A") === estado).length,
   }));
+  const categoriaCounts = groupByCategoria(abiertosRows);
+  const urgenciaCounts = groupByUrgencia(abiertosRows);
+  const tecnicoCounts = groupByTecnico(abiertosRows);
 
-  // d) Top 5 solicitantes con más casos abiertos en el periodo
   const solicitanteCounts = new Map<string, number>();
   for (const row of abiertosRows) {
     const nombre = row.solicitante?.trim() || "Sin especificar";
@@ -108,42 +102,69 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
 
-  // e) Casos por categoría y por urgencia, sobre los casos abiertos en el periodo
-  const categoriaCounts = groupByCategoria(abiertosRows);
-  const urgenciaCounts = groupByUrgencia(abiertosRows);
-
-  // f) Tendencia de tiempo de solución, últimas 8 semanas (independiente del periodo seleccionado)
-  const trend = bucketResolutionTrend(trendRows ?? [], TREND_WEEKS);
-
   const rangoLabel =
     desde && hasta ? `${desde} — ${hasta}` : desde ? `Desde ${desde}` : hasta ? `Hasta ${hasta}` : "Todo el histórico";
 
+  const exportData = {
+    rangoLabel,
+    slaWindowDays: SLA_WINDOW_DAYS,
+    slaTargetPct: SLA_TARGET_PCT,
+    estadoInterno: estadoInternoCounts.map((e) => ({ label: e.estado, value: e.count })),
+    duration: durationStats,
+    backlog: backlogAging,
+    categoria: categoriaCounts,
+    urgencia: urgenciaCounts,
+    tecnico: tecnicoCounts,
+    estadoProveedor: estadoProveedorCounts.map((e) => ({ label: e.estado, value: e.count })),
+    volumeTrend,
+    resolutionTrend,
+    oldestOpen,
+    topSolicitantes,
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">{rangoLabel}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground">{rangoLabel}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <RefreshButton />
+          <ExportPptxButton data={exportData} />
+        </div>
       </div>
 
       <DashboardFilters />
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">Resumen del periodo</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <OpenVsClosedChart
-            abiertos={abiertosCount}
-            cerrados={cerradosCount}
-            abiertosDelta={abiertosDelta}
-            cerradosDelta={cerradosDelta}
+        <h2 className="text-sm font-semibold text-muted-foreground">Estado actual</h2>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <EstadoInternoChart data={estadoInternoCounts} />
+          <ResolutionTimeCard
+            mean={durationStats.mean}
+            median={durationStats.median}
+            p90={durationStats.p90}
+            casosConsiderados={durationStats.n}
           />
-          <ResolutionTimeCard promedioDias={promedioDias} casosConsiderados={duraciones.length} />
+          <SlaKpiCard
+            windowDays={SLA_WINDOW_DAYS}
+            withinWindow={durationStats.withinWindow}
+            total={durationStats.n}
+            pct={durationStats.withinWindowPct}
+          />
+          <BacklogAgingCard
+            count={backlogAging.count}
+            oldestDias={backlogAging.oldestDias}
+            staleCount={backlogAging.staleCount}
+          />
         </div>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Distribución</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <EstadoProveedorChart data={estadoCounts} />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <EstadoProveedorChart data={estadoProveedorCounts} />
           <RankedBarChart
             title="Casos por categoría"
             description="Casos abiertos en el periodo, por subcategoría"
@@ -154,13 +175,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             description="Casos abiertos en el periodo, por nivel de urgencia"
             data={urgenciaCounts}
           />
+          <RankedBarChart
+            title="Carga de trabajo por técnico"
+            description="Casos abiertos en el periodo, por técnico asignado"
+            data={tecnicoCounts}
+          />
         </div>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-muted-foreground">Tendencia y solicitantes</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground">Tendencias</h2>
         <div className="grid gap-4 lg:grid-cols-2">
-          <ResolutionTrendChart data={trend} />
+          <TrendLineChart
+            title="Volumen de casos nuevos"
+            description={`Casos abiertos por semana, últimas ${TREND_WEEKS} semanas`}
+            data={volumeTrend}
+            valueLabel="Casos"
+          />
+          <TrendLineChart
+            title="Tendencia de tiempo de solución"
+            description={`Promedio de días para cerrar un caso, últimas ${TREND_WEEKS} semanas`}
+            data={resolutionTrend}
+            valueLabel="Días promedio"
+            emptyMessage={`Sin casos cerrados en las últimas ${TREND_WEEKS} semanas.`}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground">Detalle accionable</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <OldestOpenCasesList data={oldestOpen} />
           <RankedBarChart
             title="Top 5 solicitantes"
             description="Con más casos abiertos en el periodo seleccionado"
