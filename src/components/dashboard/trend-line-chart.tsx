@@ -10,30 +10,36 @@ import {
 } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
-export function ResolutionTrendChart({
+export function TrendLineChart({
+  title,
+  description,
   data,
+  valueLabel,
+  emptyMessage = "Sin datos en el rango.",
 }: {
-  data: { semana: string; diasPromedio: number | null }[];
+  title: string;
+  description: string;
+  data: { x: string; y: number | null }[];
+  valueLabel: string;
+  emptyMessage?: string;
 }) {
-  const hasData = data.some((d) => d.diasPromedio !== null);
+  const hasData = data.some((d) => d.y !== null);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Tendencia de tiempo de solución</CardTitle>
-        <CardDescription>Promedio de días para cerrar un caso, últimas 8 semanas</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         {!hasData ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Sin casos cerrados en las últimas 8 semanas.
-          </p>
+          <p className="py-10 text-center text-sm text-muted-foreground">{emptyMessage}</p>
         ) : (
-          <ChartContainer config={{ diasPromedio: { label: "Días promedio" } }} className="h-[260px] w-full">
+          <ChartContainer config={{ y: { label: valueLabel } }} className="h-[260px] w-full">
             <LineChart data={data} margin={{ left: 8, right: 8 }}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <XAxis
-                dataKey="semana"
+                dataKey="x"
                 tickLine={false}
                 axisLine={{ stroke: "var(--chart-axis)" }}
                 tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
@@ -47,7 +53,7 @@ export function ResolutionTrendChart({
               />
               <ChartTooltip content={<ChartTooltipContent />} cursor={{ stroke: "var(--chart-axis)" }} />
               <Line
-                dataKey="diasPromedio"
+                dataKey="y"
                 type="monotone"
                 stroke="var(--chart-1)"
                 strokeWidth={2}
