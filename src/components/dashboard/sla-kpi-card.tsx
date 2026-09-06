@@ -28,21 +28,21 @@ export function SlaKpiCard({
         {pct === null ? (
           <p className="text-sm text-muted-foreground">Sin casos cerrados en el periodo.</p>
         ) : (
-          <div className="flex items-baseline gap-2">
-            <span
-              className={cn(
-                "text-4xl font-semibold tabular-nums",
-                meetsTarget ? "text-[var(--status-curso)]" : "text-destructive"
-              )}
-            >
-              {pct}%
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {withinWindow}/{total} casos cerrados en ≤{windowDays} días
-            </span>
-          </div>
+          <span
+            className={cn(
+              "text-6xl font-bold leading-none tabular-nums",
+              meetsTarget ? "text-[var(--status-curso)]" : "text-destructive"
+            )}
+          >
+            {pct}%
+          </span>
         )}
       </CardContent>
+      {pct !== null && (
+        <p className="px-6 pb-4 text-xs text-muted-foreground">
+          {withinWindow}/{total} casos cerrados en ≤{windowDays} días
+        </p>
+      )}
     </Card>
   );
 }

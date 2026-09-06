@@ -21,23 +21,22 @@ export function BacklogAgingCard({
           <p className="text-sm text-muted-foreground">No hay casos abiertos.</p>
         ) : (
           <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-semibold tabular-nums">{oldestDias}</span>
-            <span className="text-sm text-muted-foreground">
-              días el caso abierto más antiguo · {count} caso{count === 1 ? "" : "s"} abierto
-              {count === 1 ? "" : "s"} en total
-              {staleCount > 0 && (
-                <>
-                  {" "}
-                  ·{" "}
-                  <span className={cn("font-medium text-destructive")}>
-                    {staleCount} con más de 15 días
-                  </span>
-                </>
-              )}
-            </span>
+            <span className="text-6xl font-bold leading-none tabular-nums">{oldestDias}</span>
+            <span className="text-sm text-muted-foreground">días el más antiguo</span>
           </div>
         )}
       </CardContent>
+      {oldestDias !== null && (
+        <p className="px-6 pb-4 text-xs text-muted-foreground">
+          {count} caso{count === 1 ? "" : "s"} abierto{count === 1 ? "" : "s"} en total
+          {staleCount > 0 && (
+            <>
+              {" "}
+              · <span className={cn("font-medium text-destructive")}>{staleCount} con más de 15 días</span>
+            </>
+          )}
+        </p>
+      )}
     </Card>
   );
 }

@@ -2,9 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div>
-      <p className="text-2xl font-semibold tabular-nums">{value.toFixed(1)}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+    <div className="relative text-center">
+      <p className="text-6xl font-bold leading-none tabular-nums">{value.toFixed(1)}</p>
+      <p className="absolute inset-x-0 top-full mt-2 text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -30,7 +30,7 @@ export function ResolutionTimeCard({
         {mean === null || median === null || p90 === null ? (
           <p className="text-sm text-muted-foreground">Sin casos cerrados en el periodo.</p>
         ) : (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid w-full grid-cols-3 gap-2">
             <Stat label="Promedio" value={mean} />
             <Stat label="Mediana" value={median} />
             <Stat label="P90" value={p90} />
