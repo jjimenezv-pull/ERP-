@@ -24,13 +24,13 @@ export function SlaKpiCard({
           Objetivo: resolver los casos rápido y de forma confiable — Meta: ≥{SLA_TARGET_PCT}% en ≤{windowDays} días
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 items-center">
+      <CardContent className="flex flex-1 items-center [container-type:inline-size]">
         {pct === null ? (
           <p className="text-sm text-muted-foreground">Sin casos cerrados en el periodo.</p>
         ) : (
           <span
             className={cn(
-              "text-6xl font-bold leading-none tabular-nums",
+              "text-[clamp(2rem,14cqw,3.75rem)] font-bold leading-none tabular-nums",
               meetsTarget ? "text-[var(--status-curso)]" : "text-destructive"
             )}
           >
