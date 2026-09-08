@@ -28,6 +28,7 @@ export interface DashboardExportData {
     withinWindowPct: number | null;
   };
   backlog: { count: number; oldestDias: number | null; staleCount: number };
+  proveedorEscalados: { pendientes: number; total: number };
   categoria: { label: string; value: number }[];
   urgencia: { label: string; value: number }[];
   tecnico: { label: string; value: number }[];
@@ -125,6 +126,14 @@ export function ExportPptxButton({ data }: { data: DashboardExportData }) {
           data.backlog.oldestDias === null
             ? "No hay casos abiertos"
             : `${data.backlog.oldestDias} días el más antiguo · ${data.backlog.count} abiertos · ${data.backlog.staleCount} con más de 15 días`,
+        ],
+        [
+          "Escalados a proveedor",
+          data.proveedorEscalados.total === 0
+            ? "Sin casos escalados"
+            : `${data.proveedorEscalados.pendientes} pendiente${
+                data.proveedorEscalados.pendientes === 1 ? "" : "s"
+              } de ${data.proveedorEscalados.total} escalado${data.proveedorEscalados.total === 1 ? "" : "s"}`,
         ],
       ];
 

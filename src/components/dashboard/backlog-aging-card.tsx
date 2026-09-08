@@ -16,14 +16,12 @@ export function BacklogAgingCard({
         <CardTitle>Antigüedad del backlog</CardTitle>
         <CardDescription>Casos abiertos ahora mismo, sin importar cuándo se crearon</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-1 items-center [container-type:inline-size]">
+      <CardContent className="flex flex-1 items-center">
         {oldestDias === null ? (
           <p className="text-sm text-muted-foreground">No hay casos abiertos.</p>
         ) : (
           <div className="flex min-w-0 items-baseline gap-2">
-            <span className="text-[clamp(2rem,14cqw,3.75rem)] font-bold leading-none tabular-nums">
-              {oldestDias}
-            </span>
+            <span className="text-3xl font-bold leading-none tabular-nums sm:text-4xl">{oldestDias}</span>
             <span className="text-sm text-muted-foreground">días el más antiguo</span>
           </div>
         )}

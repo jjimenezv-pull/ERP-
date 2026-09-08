@@ -17,6 +17,7 @@ import { EstadoInternoChart } from "@/components/dashboard/estado-interno-chart"
 import { SlaKpiCard } from "@/components/dashboard/sla-kpi-card";
 import { ResolutionTimeCard } from "@/components/dashboard/resolution-time-card";
 import { BacklogAgingCard } from "@/components/dashboard/backlog-aging-card";
+import { ProviderEscalationCard } from "@/components/dashboard/provider-escalation-card";
 import { EstadoProveedorChart } from "@/components/dashboard/estado-proveedor-chart";
 import { RankedBarChart } from "@/components/dashboard/ranked-bar-chart";
 import { TrendLineChart } from "@/components/dashboard/trend-line-chart";
@@ -73,6 +74,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // Sección "Estado actual": snapshot de todo el histórico, no depende del periodo.
   const estadoInternoCounts = countByEstadoInterno(allRows);
   const backlogAging = computeBacklogAging(allRows, today);
+  const escaladosProveedor = allRows.filter((r) => (r.estado_proveedor ?? "N/A") !== "N/A");
+  const escaladosPendientes = escaladosProveedor.filter(
+    (r) => r.estado_proveedor === "Pendiente" || r.estado_proveedor === "En revisión"
+  ).length;
   const oldestOpen = topOldestOpen(allRows, today, 5);
   const volumeTrend = bucketVolumeTrend(allRows, TREND_WEEKS).map((d) => ({ x: d.semana, y: d.casos }));
   const resolutionTrend = bucketResolutionTrend(allRows, TREND_WEEKS).map((d) => ({
@@ -112,6 +117,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     estadoInterno: estadoInternoCounts.map((e) => ({ label: e.estado, value: e.count })),
     duration: durationStats,
     backlog: backlogAging,
+    proveedorEscalados: { pendientes: escaladosPendientes, total: escaladosProveedor.length },
     categoria: categoriaCounts,
     urgencia: urgenciaCounts,
     tecnico: tecnicoCounts,
@@ -139,14 +145,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Estado actual</h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <EstadoInternoChart data={estadoInternoCounts} />
-          <ResolutionTimeCard
-            mean={durationStats.mean}
-            median={durationStats.median}
-            p90={durationStats.p90}
-            casosConsiderados={durationStats.n}
-          />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="xl:col-span-2">
+            <ResolutionTimeCard
+              mean={durationStats.mean}
+              median={durationStats.median}
+              p90={durationStats.p90}
+              casosConsiderados={durationStats.n}
+            />
+          </div>
           <SlaKpiCard
             windowDays={SLA_WINDOW_DAYS}
             withinWindow={durationStats.withinWindow}
@@ -158,6 +165,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             oldestDias={backlogAging.oldestDias}
             staleCount={backlogAging.staleCount}
           />
+          <ProviderEscalationCard pendientes={escaladosPendientes} total={escaladosProveedor.length} />
+        </div>
+        <div className="max-w-md">
+          <EstadoInternoChart data={estadoInternoCounts} />
         </div>
       </section>
 
