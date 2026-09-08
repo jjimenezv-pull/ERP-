@@ -47,16 +47,23 @@ export function groupByUrgencia(rows: Caso[]): { label: string; value: number }[
   return [...ordered, ...resto];
 }
 
-// Una celda de técnico puede traer varios nombres separados por "<br>" (GLPI).
+// Una celda de técnico puede traer varios nombres separados por ", " — parse-casos.ts ya
+// normaliza el "<br>" de GLPI a ese separador antes de guardar en la base.
 function splitTecnicos(tecnico: string | null): string[] {
-  const names = (tecnico ?? "").split(/<br\s*\/?>/i).map((t) => t.trim()).filter(Boolean);
+  const names = (tecnico ?? "").split(",").map((t) => t.trim()).filter(Boolean);
   return names.length > 0 ? names : ["Sin asignar"];
 }
+
+// El equipo real de soporte son estos dos; el resto de valores que aparecen en
+// tecnico_asignado (cuentas de bot como "titan chatbot", asignaciones puntuales de
+// otras áreas) no cuentan como carga de trabajo. Ajustar aquí si el equipo cambia.
+const TECNICOS_EQUIPO = ["Daniel Alejandro Melo (4387)", "Jean Carlo Jimenez Vanegas (5512)"];
 
 export function groupByTecnico(rows: Caso[], topN = 5): { label: string; value: number }[] {
   const counts = new Map<string, number>();
   for (const row of rows) {
     for (const nombre of splitTecnicos(row.tecnico_asignado)) {
+      if (!TECNICOS_EQUIPO.includes(nombre)) continue;
       counts.set(nombre, (counts.get(nombre) ?? 0) + 1);
     }
   }
