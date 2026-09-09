@@ -20,8 +20,8 @@ export function BacklogAgingCard({
         {oldestDias === null ? (
           <p className="text-sm text-muted-foreground">No hay casos abiertos.</p>
         ) : (
-          <div className="flex items-baseline gap-2">
-            <span className="text-6xl font-bold leading-none tabular-nums">{oldestDias}</span>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="text-3xl font-bold leading-none tabular-nums sm:text-4xl">{oldestDias}</span>
             <span className="text-sm text-muted-foreground">días el más antiguo</span>
           </div>
         )}
