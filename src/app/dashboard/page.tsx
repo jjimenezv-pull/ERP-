@@ -167,8 +167,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <ProviderEscalationCard pendientes={escaladosPendientes} total={escaladosProveedor.length} />
         </div>
-        <div className="max-w-md">
+        <div className="grid gap-4 lg:grid-cols-2">
           <EstadoInternoChart data={estadoInternoCounts} />
+          <OldestOpenCasesList data={oldestOpen} />
         </div>
       </section>
 
@@ -215,8 +216,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Detalle accionable</h2>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <OldestOpenCasesList data={oldestOpen} />
+        <div className="grid gap-4">
           <RankedBarChart
             title="Top 5 solicitantes"
             description="Con más casos abiertos en el periodo seleccionado"
