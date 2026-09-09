@@ -30,7 +30,7 @@ export function SlaKpiCard({
         ) : (
           <span
             className={cn(
-              "text-6xl font-bold leading-none tabular-nums",
+              "text-3xl font-bold leading-none tabular-nums sm:text-4xl",
               meetsTarget ? "text-[var(--status-curso)]" : "text-destructive"
             )}
           >
