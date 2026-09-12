@@ -19,4 +19,5 @@ export async function updateCasoProveedor(
   }
 
   revalidatePath("/casos");
+  revalidatePath("/proveedor");
 }

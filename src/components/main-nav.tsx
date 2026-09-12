@@ -19,6 +19,7 @@ import type { CurrentProfile } from "@/lib/auth/get-current-profile";
 const links = [
   { href: "/casos", label: "Gestión de Casos" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/proveedor", label: "Casos Proveedor" },
 ];
 
 const ROLE_LABEL: Record<CurrentProfile["role"], string> = {
