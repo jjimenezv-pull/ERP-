@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { CasosFilters } from "@/components/casos/casos-filters";
 import { CasosTable } from "@/components/casos/casos-table";
 import { ImportDialog } from "@/components/casos/import-dialog";
@@ -42,6 +43,9 @@ interface CasosPageProps {
 }
 
 export default async function CasosPage({ searchParams }: CasosPageProps) {
+  const profile = await getCurrentProfile();
+  const canEdit = profile?.role === "admin";
+
   const supabase = createServerClient();
 
   const orderBy = (COLUMNAS_ORDENABLES as readonly string[]).includes(searchParams.orderBy ?? "")
@@ -105,12 +109,12 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
           <h1 className="text-2xl font-semibold tracking-tight">Gestión de Casos</h1>
           <p className="text-sm text-muted-foreground">{casos.length} casos</p>
         </div>
-        <ImportDialog />
+        {canEdit && <ImportDialog />}
       </div>
 
       <CasosFilters />
 
-      <CasosTable casos={casos} />
+      <CasosTable casos={casos} canEdit={canEdit} />
     </div>
   );
 }

@@ -1,9 +1,26 @@
 export type EstadoInterno = "En curso (asignada)" | "Cerrado" | "En espera";
 export type EstadoProveedor = "N/A" | "Pendiente" | "En revisión" | "Resuelto";
+export type UserRole = "admin" | "viewer";
 
 export type Database = {
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          email: string;
+          role: UserRole;
+          password_set: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["profiles"]["Row"]> & {
+          id: string;
+          email: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
+        Relationships: [];
+      };
       casos: {
         Row: {
           id: string;

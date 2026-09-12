@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { parseCasosXlsx, type ParseResult } from "@/lib/xlsx/parse-casos";
+import { parseCasosCsv } from "@/lib/xlsx/parse-casos-csv";
 import { importCasos } from "@/app/casos/import-actions";
 
 type Summary = { nuevos: number; actualizados: number };
@@ -44,9 +45,10 @@ export function ImportDialog() {
     setFileName(file.name);
     try {
       const buffer = await file.arrayBuffer();
-      setParseResult(parseCasosXlsx(buffer));
+      const parser = file.name.toLowerCase().endsWith(".csv") ? parseCasosCsv : parseCasosXlsx;
+      setParseResult(parser(buffer));
     } catch {
-      toast.error("No se pudo leer el archivo. Verifica que sea un .xlsx válido.");
+      toast.error("No se pudo leer el archivo. Verifica que sea un .xlsx o .csv válido.");
       setParseResult(null);
     }
   }
@@ -82,14 +84,14 @@ export function ImportDialog() {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Importar casos desde XLSX</DialogTitle>
+          <DialogTitle>Importar casos desde XLSX o CSV</DialogTitle>
           <DialogDescription>
-            Sube el archivo exportado semanalmente desde GLPI. Los casos nuevos se crean y los
+            Sube el archivo exportado desde GLPI (.xlsx o .csv). Los casos nuevos se crean y los
             existentes se actualizan sin tocar el seguimiento manual del proveedor.
           </DialogDescription>
         </DialogHeader>
 
-        <Input type="file" accept=".xlsx" onChange={handleFileChange} disabled={isPending} />
+        <Input type="file" accept=".xlsx,.csv" onChange={handleFileChange} disabled={isPending} />
 
         {fileName && parseResult && !summary && (
           <div className="space-y-2 text-sm">

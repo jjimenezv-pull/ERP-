@@ -118,7 +118,7 @@ function SortableHead({
   );
 }
 
-export function CasosTable({ casos }: { casos: Caso[] }) {
+export function CasosTable({ casos, canEdit }: { casos: Caso[]; canEdit: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -253,33 +253,48 @@ export function CasosTable({ casos }: { casos: Caso[] }) {
               <TableCell>{formatFecha(caso.fecha_cierre)}</TableCell>
               <TableCell>{caso.urgencia ?? "—"}</TableCell>
               <TableCell>
-                <Input
-                  defaultValue={caso.caso_escalado_proveedor ?? ""}
-                  placeholder="Ref. ticket proveedor"
-                  disabled={isPending}
-                  onChange={(e) => handleEscaladoChange(caso.id, e.target.value)}
-                  onBlur={(e) => handleEscaladoBlur(caso.id, e.target.value)}
-                />
+                {canEdit ? (
+                  <Input
+                    defaultValue={caso.caso_escalado_proveedor ?? ""}
+                    placeholder="Ref. ticket proveedor"
+                    disabled={isPending}
+                    onChange={(e) => handleEscaladoChange(caso.id, e.target.value)}
+                    onBlur={(e) => handleEscaladoBlur(caso.id, e.target.value)}
+                  />
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    {caso.caso_escalado_proveedor || "—"}
+                  </span>
+                )}
               </TableCell>
               <TableCell>
-                <Select
-                  value={caso.estado_proveedor ?? "N/A"}
-                  onValueChange={(v) => handleEstadoProveedorChange(caso.id, v as EstadoProveedor)}
-                  disabled={isPending}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_PROVEEDOR.map((estado) => (
-                      <SelectItem key={estado} value={estado}>
-                        <Badge variant="outline" className={cn(ESTADO_PROVEEDOR_CLASS[estado])}>
-                          {estado}
-                        </Badge>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {canEdit ? (
+                  <Select
+                    value={caso.estado_proveedor ?? "N/A"}
+                    onValueChange={(v) => handleEstadoProveedorChange(caso.id, v as EstadoProveedor)}
+                    disabled={isPending}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ESTADOS_PROVEEDOR.map((estado) => (
+                        <SelectItem key={estado} value={estado}>
+                          <Badge variant="outline" className={cn(ESTADO_PROVEEDOR_CLASS[estado])}>
+                            {estado}
+                          </Badge>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className={cn(ESTADO_PROVEEDOR_CLASS[caso.estado_proveedor ?? "N/A"])}
+                  >
+                    {caso.estado_proveedor ?? "N/A"}
+                  </Badge>
+                )}
               </TableCell>
             </TableRow>
           ))}

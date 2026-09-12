@@ -1,25 +1,11 @@
 import * as XLSX from "xlsx";
-import { format, isValid, parse } from "date-fns";
+import { format } from "date-fns";
 import type { EstadoInterno } from "@/lib/supabase/types";
+import { cellToText, normalizeEstadoInterno, parseFechaTexto } from "@/lib/xlsx/shared";
 
 // Estructura del xlsx exportado por GLPI: siempre estas 13 columnas, en este orden.
 // No hay mapeo configurable porque el formato de exportación es fijo.
 const COLUMN_COUNT = 13;
-
-const ESTADOS_INTERNOS_VALIDOS: EstadoInterno[] = [
-  "En curso (asignada)",
-  "Cerrado",
-  "En espera",
-];
-
-const DATE_FORMATS = [
-  "dd/MM/yyyy HH:mm",
-  "dd/MM/yyyy",
-  "dd-MM-yyyy HH:mm",
-  "dd-MM-yyyy",
-  "yyyy-MM-dd HH:mm:ss",
-  "yyyy-MM-dd",
-];
 
 export type ParsedCasoRow = {
   id_glpi: number;
@@ -44,28 +30,6 @@ export type ParseResult = {
   valid: ParsedCasoRow[];
   errores: ParseError[];
 };
-
-function cellToText(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  // GLPI a veces exporta "<br>" literal cuando una celda trae varios valores
-  // (ej. varios técnicos asignados). Se normaliza a ", " en el origen.
-  const text = String(value).replace(/\s*<br\s*\/?>\s*/gi, ", ").trim();
-  return text.length > 0 ? text : null;
-}
-
-function parseFecha(value: unknown): string | null {
-  if (value === null || value === undefined || value === "") return null;
-  if (value instanceof Date) {
-    return isValid(value) ? format(value, "yyyy-MM-dd") : null;
-  }
-  const text = String(value).trim();
-  if (!text) return null;
-  for (const fmt of DATE_FORMATS) {
-    const parsed = parse(text, fmt, new Date());
-    if (isValid(parsed)) return format(parsed, "yyyy-MM-dd");
-  }
-  return null;
-}
 
 // El export de GLPI escribe el ID dividido entre 1000 (ej. la celda trae 93.826
 // en vez de 93826), consistente en el 100% de las filas observadas. Se reconstruye
@@ -97,15 +61,6 @@ function parseIdGlpi(idRaw: unknown, tituloRaw: unknown): { id: number | null; m
     return { id: null, motivo: `ID inválido: "${idRaw}"` };
   }
   return { id: reconstructed };
-}
-
-function normalizeEstadoInterno(value: unknown): EstadoInterno | null {
-  const text = cellToText(value);
-  if (!text) return null;
-  const match = ESTADOS_INTERNOS_VALIDOS.find(
-    (estado) => estado.localeCompare(text, undefined, { sensitivity: "base" }) === 0
-  );
-  return match ?? null;
 }
 
 export function parseCasosXlsx(buffer: ArrayBuffer): ParseResult {
@@ -168,8 +123,8 @@ export function parseCasosXlsx(buffer: ArrayBuffer): ParseResult {
       ubicacion: cellToText(ubicacionRaw),
       solicitante: cellToText(solicitanteRaw),
       categoria: cellToText(categoriaRaw),
-      fecha_apertura: parseFecha(fechaAperturaRaw),
-      fecha_cierre: parseFecha(fechaCierreRaw),
+      fecha_apertura: parseFechaTexto(fechaAperturaRaw),
+      fecha_cierre: parseFechaTexto(fechaCierreRaw),
       tecnico_asignado: cellToText(tecnicoRaw),
       urgencia: cellToText(urgenciaRaw),
       descripcion: cellToText(descripcionRaw),

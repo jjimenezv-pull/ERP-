@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { MainNav } from "@/components/main-nav";
 import { Toaster } from "@/components/ui/sonner";
+import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -11,16 +12,18 @@ export const metadata: Metadata = {
   description: "Plataforma interna de gestión de casos de soporte (GLPI + proveedor ERP)",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const profile = await getCurrentProfile();
+
   return (
     <html lang="es" className={inter.variable}>
       <body className="font-sans antialiased">
         <div className="min-h-screen bg-background">
-          <MainNav />
+          <MainNav profile={profile} />
           <main className="mx-auto w-full max-w-[1800px] px-6 py-6 lg:px-10">
             {children}
           </main>

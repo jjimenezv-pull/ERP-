@@ -2,15 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LifeBuoy } from "lucide-react";
+import { LifeBuoy, LogOut, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { signOut } from "@/lib/auth/actions";
+import type { CurrentProfile } from "@/lib/auth/get-current-profile";
 
 const links = [
   { href: "/casos", label: "Gestión de Casos" },
   { href: "/dashboard", label: "Dashboard" },
 ];
 
-export function MainNav() {
+const ROLE_LABEL: Record<CurrentProfile["role"], string> = {
+  admin: "Admin",
+  viewer: "Visualizador",
+};
+
+export function MainNav({ profile }: { profile: CurrentProfile | null }) {
   const pathname = usePathname();
 
   return (
@@ -40,6 +56,34 @@ export function MainNav() {
             );
           })}
         </nav>
+        {profile && (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="ml-auto flex items-center gap-2 rounded-full p-0.5 outline-none transition-colors hover:bg-white/10">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-sm font-semibold uppercase text-primary-foreground">
+                {profile.email.charAt(0)}
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="flex items-center justify-between gap-2">
+                <span className="max-w-[180px] truncate">{profile.email}</span>
+                <Badge variant="outline">{ROLE_LABEL[profile.role]}</Badge>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {profile.role === "admin" && (
+                <DropdownMenuItem asChild>
+                  <Link href="/usuarios">
+                    <Users className="mr-2 h-4 w-4" />
+                    Usuarios
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={() => signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </header>
   );

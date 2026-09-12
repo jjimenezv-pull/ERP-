@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/get-current-profile";
 import type { ParsedCasoRow } from "@/lib/xlsx/parse-casos";
 
 const CHUNK_SIZE = 500;
@@ -9,6 +10,8 @@ const CHUNK_SIZE = 500;
 export async function importCasos(
   rows: ParsedCasoRow[]
 ): Promise<{ nuevos: number; actualizados: number }> {
+  await requireAdmin();
+
   if (rows.length === 0) {
     return { nuevos: 0, actualizados: 0 };
   }
