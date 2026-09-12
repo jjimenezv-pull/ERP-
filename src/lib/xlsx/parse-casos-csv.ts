@@ -32,21 +32,26 @@ function sinSufijoId(value: string | null): string | null {
   return value.replace(/\s*\(\d+\)/g, "").trim() || null;
 }
 
-// Las fechas llegan como serial numérico de Excel cuando SheetJS las detecta como
-// fecha al leer el CSV. Decodificarlas con XLSX.SSF.parse_date_code es aritmética
-// pura sobre el serial (sin construir un objeto Date) — a diferencia de cellDates,
-// no depende de la zona horaria del proceso que lee el archivo, que en el servidor
-// de producción (UTC) puede correr el día calendario.
-function parseFechaCelda(value: unknown): string | null {
-  if (typeof value === "number") {
-    const { y, m, d } = XLSX.SSF.parse_date_code(value);
-    return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  return parseFechaTexto(value);
+// Convierte "94,108" (con separador de miles) a 94108. Se hace a mano en vez de
+// dejar que SheetJS interprete el número: con `raw: true` al leer, TODAS las
+// celdas llegan como texto (ver nota más abajo sobre por qué es necesario),
+// así que el ID también llega como string.
+function parseIdGlpi(value: unknown): number | null {
+  const text = cellToText(value);
+  if (!text) return null;
+  const parsed = Number.parseInt(text.replace(/,/g, ""), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
-  const workbook = XLSX.read(buffer, { type: "array", FS: ";" });
+  // `raw: true` en el READ (no solo en sheet_to_json) es crítico: sin esto,
+  // SheetJS detecta celdas con forma de fecha ("02-07-2026") y las convierte
+  // a un serial numérico de Excel usando una heurística en inglés (mes
+  // primero) — con fechas día<=12 eso invierte día y mes en silencio (ej.
+  // "02-07-2026" = 2 de julio se leía como 7 de febrero). Con `raw: true`
+  // cada celda queda como el texto original, y lo parseamos nosotros con
+  // parseFechaTexto (formato explícito, sin adivinar).
+  const workbook = XLSX.read(buffer, { type: "array", FS: ";", raw: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
@@ -95,9 +100,9 @@ export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
     const isEmpty = row.every((cell) => cell === null || cell === undefined || cell === "");
     if (isEmpty) return;
 
-    const idRaw = row[iId];
-    if (typeof idRaw !== "number" || !Number.isInteger(idRaw) || idRaw <= 0) {
-      errores.push({ fila: filaHumana, motivo: `ID inválido: "${cellToText(idRaw) ?? ""}"` });
+    const id_glpi = parseIdGlpi(row[iId]);
+    if (id_glpi === null) {
+      errores.push({ fila: filaHumana, motivo: `ID inválido: "${cellToText(row[iId]) ?? ""}"` });
       return;
     }
 
@@ -111,15 +116,15 @@ export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
     }
 
     valid.push({
-      id_glpi: idRaw,
+      id_glpi,
       titulo: cellToText(row[iTitulo]),
       estado_interno,
       tipo: cellToText(row[iTipo]),
       ubicacion: cellToText(row[iUbicacion]),
       solicitante: sinSufijoId(cellToText(row[iSolicitante])),
       categoria: cellToText(row[iCategoria]),
-      fecha_apertura: parseFechaCelda(row[iFechaApertura]),
-      fecha_cierre: parseFechaCelda(row[iFechaCierre]),
+      fecha_apertura: parseFechaTexto(row[iFechaApertura]),
+      fecha_cierre: parseFechaTexto(row[iFechaCierre]),
       tecnico_asignado: sinSufijoId(cellToText(row[iTecnico])),
       urgencia: cellToText(row[iUrgencia]),
       descripcion: cellToText(row[iDescripcion]),
