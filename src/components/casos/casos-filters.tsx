@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DateRange } from "react-day-picker";
+import { format, parseISO } from "date-fns";
 import { Search } from "lucide-react";
 
 import {
@@ -71,16 +72,20 @@ export function CasosFilters() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
+  // parseISO (no `new Date(string)`) es obligatorio aquí: un string sin hora
+  // ("2026-09-20") se interpreta como medianoche UTC, que en zonas horarias
+  // negativas (ej. Colombia, UTC-5) cae en el día anterior en hora local —
+  // el calendario mostraría el día seleccionado un día corrido.
   const dateRange: DateRange | undefined =
     desde || hasta
-      ? { from: desde ? new Date(desde) : undefined, to: hasta ? new Date(hasta) : undefined }
+      ? { from: desde ? parseISO(desde) : undefined, to: hasta ? parseISO(hasta) : undefined }
       : undefined;
 
   const dateRangeCierre: DateRange | undefined =
     desdeCierre || hastaCierre
       ? {
-          from: desdeCierre ? new Date(desdeCierre) : undefined,
-          to: hastaCierre ? new Date(hastaCierre) : undefined,
+          from: desdeCierre ? parseISO(desdeCierre) : undefined,
+          to: hastaCierre ? parseISO(hastaCierre) : undefined,
         }
       : undefined;
 
@@ -159,12 +164,12 @@ export function CasosFilters() {
           onChange={(range) => {
             const params = new URLSearchParams(searchParams.toString());
             if (range?.from) {
-              params.set("desde", range.from.toISOString().slice(0, 10));
+              params.set("desde", format(range.from, "yyyy-MM-dd"));
             } else {
               params.delete("desde");
             }
             if (range?.to) {
-              params.set("hasta", range.to.toISOString().slice(0, 10));
+              params.set("hasta", format(range.to, "yyyy-MM-dd"));
             } else {
               params.delete("hasta");
             }
@@ -178,12 +183,12 @@ export function CasosFilters() {
           onChange={(range) => {
             const params = new URLSearchParams(searchParams.toString());
             if (range?.from) {
-              params.set("desde_cierre", range.from.toISOString().slice(0, 10));
+              params.set("desde_cierre", format(range.from, "yyyy-MM-dd"));
             } else {
               params.delete("desde_cierre");
             }
             if (range?.to) {
-              params.set("hasta_cierre", range.to.toISOString().slice(0, 10));
+              params.set("hasta_cierre", format(range.to, "yyyy-MM-dd"));
             } else {
               params.delete("hasta_cierre");
             }
