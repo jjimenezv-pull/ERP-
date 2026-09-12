@@ -26,12 +26,16 @@ export function ImportDialog() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [isPending, startTransition] = useTransition();
 
   function reset() {
     setFileName(null);
     setParseResult(null);
     setSummary(null);
+    // Cambia la key para remontar el <input type="file"> con el valor limpio
+    // (si no, seleccionar el mismo archivo dos veces seguidas no dispara onChange).
+    setFileInputKey((k) => k + 1);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -91,7 +95,13 @@ export function ImportDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <Input type="file" accept=".xlsx,.csv" onChange={handleFileChange} disabled={isPending} />
+        <Input
+          key={fileInputKey}
+          type="file"
+          accept=".xlsx,.csv"
+          onChange={handleFileChange}
+          disabled={isPending}
+        />
 
         {fileName && parseResult && !summary && (
           <div className="space-y-2 text-sm">
@@ -134,7 +144,11 @@ export function ImportDialog() {
           <Button variant="ghost" onClick={() => setOpen(false)}>
             {summary ? "Cerrar" : "Cancelar"}
           </Button>
-          {!summary && (
+          {summary ? (
+            <Button variant="outline" onClick={reset}>
+              Importar otro archivo
+            </Button>
+          ) : (
             <Button
               onClick={handleImport}
               disabled={!parseResult || parseResult.valid.length === 0 || isPending}

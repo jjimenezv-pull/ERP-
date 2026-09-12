@@ -71,8 +71,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const abiertosRows = abiertos ?? [];
   const cerradosRows = cerrados ?? [];
 
-  // Sección "Estado actual": snapshot de todo el histórico, no depende del periodo.
-  const estadoInternoCounts = countByEstadoInterno(allRows);
+  // Sección "Estado actual": "En espera"/"En curso" son snapshot de todo el
+  // histórico (no dependen del periodo); "Cerrado" sí refleja el periodo
+  // seleccionado (cuántos se cerraron esa semana/mes/histórico).
+  const cerradosEnPeriodo = cerradosRows.filter((r) => r.estado_interno === "Cerrado").length;
+  const estadoInternoCounts = countByEstadoInterno(allRows).map((e) =>
+    e.estado === "Cerrado" ? { ...e, count: cerradosEnPeriodo } : e
+  );
   const backlogAging = computeBacklogAging(allRows, today);
   const escaladosProveedor = allRows.filter((r) => (r.estado_proveedor ?? "N/A") !== "N/A");
   const escaladosPendientes = escaladosProveedor.filter(

@@ -31,6 +31,20 @@ export async function invitarUsuario(email: string) {
   revalidatePath("/usuarios");
 }
 
+export async function enviarRestablecerPassword(email: string) {
+  await requireAdmin();
+
+  const origin = headers().get("origin");
+  const supabase = createServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/accept-invite`,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function cambiarRolUsuario(id: string, role: UserRole) {
   await requireAdmin();
 

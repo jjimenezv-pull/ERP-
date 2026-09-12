@@ -29,7 +29,9 @@ export function EstadoInternoChart({
     <Card>
       <CardHeader>
         <CardTitle>Estado actual de los casos</CardTitle>
-        <CardDescription>Snapshot de todo el histórico, no depende del periodo seleccionado</CardDescription>
+        <CardDescription>
+          En espera / en curso: snapshot actual. Cerrados: del periodo seleccionado
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={{}} className="h-[220px] w-full">

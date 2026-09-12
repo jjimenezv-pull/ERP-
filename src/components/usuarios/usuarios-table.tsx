@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { Mail } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -21,7 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { UserRole } from "@/lib/supabase/types";
-import { cambiarRolUsuario, bloquearUsuario } from "@/app/usuarios/actions";
+import {
+  cambiarRolUsuario,
+  bloquearUsuario,
+  enviarRestablecerPassword,
+} from "@/app/usuarios/actions";
 
 export type Usuario = {
   id: string;
@@ -62,6 +67,17 @@ export function UsuariosTable({
     });
   }
 
+  function handleEnviarEnlace(email: string) {
+    startTransition(async () => {
+      try {
+        await enviarRestablecerPassword(email);
+        toast.success(`Enlace enviado a ${email}`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al enviar el enlace");
+      }
+    });
+  }
+
   if (usuarios.length === 0) {
     return (
       <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
@@ -78,6 +94,7 @@ export function UsuariosTable({
           <TableHead>Estado</TableHead>
           <TableHead className="min-w-[160px]">Rol</TableHead>
           <TableHead className="min-w-[140px]">Acceso</TableHead>
+          <TableHead className="min-w-[160px]">Contraseña</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -120,6 +137,17 @@ export function UsuariosTable({
                   onClick={() => handleBloquear(usuario.id, !usuario.bloqueado)}
                 >
                   {usuario.bloqueado ? "Desbloquear" : "Bloquear"}
+                </Button>
+              </TableCell>
+              <TableCell>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending || usuario.bloqueado}
+                  onClick={() => handleEnviarEnlace(usuario.email)}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Enviar enlace
                 </Button>
               </TableCell>
             </TableRow>

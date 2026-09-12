@@ -32,7 +32,10 @@ export default function AcceptInvitePage() {
         setError(sessionError.message);
         return;
       }
-      window.location.href = "/casos";
+      // Sirve tanto para aceptar una invitación como para un enlace de
+      // restablecer contraseña — en ambos casos el destino es definir una
+      // contraseña nueva, no ir directo a /casos.
+      window.location.href = "/set-password";
     });
   }, []);
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 
@@ -24,6 +24,15 @@ export function DateRangePicker({
   className,
   placeholder = "Rango de fechas",
 }: DateRangePickerProps) {
+  // react-day-picker en modo "range" no deselecciona un día único al hacer
+  // clic de nuevo sobre él — reinicia el rango desde ese mismo día en vez de
+  // vaciarlo. Se intercepta ese caso puntual para que sí limpie la selección.
+  function handleSelect(range: DateRange | undefined) {
+    const eraUnDia = value?.from && value.to && isSameDay(value.from, value.to);
+    const clicMismoDia = eraUnDia && range?.from && !range.to && isSameDay(range.from, value.from!);
+    onChange(clicMismoDia ? undefined : range);
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -55,7 +64,7 @@ export function DateRangePicker({
           mode="range"
           defaultMonth={value?.from}
           selected={value}
-          onSelect={onChange}
+          onSelect={handleSelect}
           numberOfMonths={2}
         />
       </PopoverContent>
