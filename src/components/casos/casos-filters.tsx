@@ -100,109 +100,109 @@ export function CasosFilters() {
   ].filter(Boolean).length;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 xl:flex-row xl:flex-wrap xl:items-center">
-      <div className="flex flex-wrap items-center gap-3">
-        <Select value={columna} onValueChange={(v) => setParam("columna", v === "todas" ? undefined : v)}>
-          <SelectTrigger className="w-[190px]">
-            <SelectValue placeholder="Buscar en..." />
-          </SelectTrigger>
-          <SelectContent>
-            {COLUMNAS_BUSCABLES.map((c) => (
-              <SelectItem key={c.value} value={c.value}>
-                {c.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    // Un solo grupo flex-wrap (en vez de dos grupos independientes, cada uno
+    // envolviendo por su cuenta) para que los controles se acomoden juntos
+    // según el ancho real disponible, sin el salto de línea a medio camino
+    // que se veía en pantallas más angostas. Cada control usa un ancho
+    // fluido (min-w + flex-1, tope en max-w) en vez de un ancho fijo, así
+    // que se adapta al monitor en vez de forzar el mismo tamaño siempre.
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/30 p-3">
+      <Select value={columna} onValueChange={(v) => setParam("columna", v === "todas" ? undefined : v)}>
+        <SelectTrigger className="w-auto min-w-[160px] flex-1 sm:max-w-[190px]">
+          <SelectValue placeholder="Buscar en..." />
+        </SelectTrigger>
+        <SelectContent>
+          {COLUMNAS_BUSCABLES.map((c) => (
+            <SelectItem key={c.value} value={c.value}>
+              {c.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-        <div className="relative w-[260px]">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar..."
-            className="pl-8"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 xl:ml-3 xl:border-l xl:pl-3">
-        <Select value={estadoInterno} onValueChange={(v) => setParam("estado_interno", v === "todos" ? undefined : v)}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Estado interno" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los estados internos</SelectItem>
-            {ESTADOS_INTERNOS.map((estado) => (
-              <SelectItem key={estado} value={estado}>
-                {estado}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={estadoProveedor}
-          onValueChange={(v) => setParam("estado_proveedor", v === "todos" ? undefined : v)}
-        >
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Estado proveedor" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los estados proveedor</SelectItem>
-            {ESTADOS_PROVEEDOR.map((estado) => (
-              <SelectItem key={estado} value={estado}>
-                {estado}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <DateRangePicker
-          value={dateRange}
-          placeholder="Fecha de apertura"
-          onChange={(range) => {
-            const params = new URLSearchParams(searchParams.toString());
-            if (range?.from) {
-              params.set("desde", format(range.from, "yyyy-MM-dd"));
-            } else {
-              params.delete("desde");
-            }
-            if (range?.to) {
-              params.set("hasta", format(range.to, "yyyy-MM-dd"));
-            } else {
-              params.delete("hasta");
-            }
-            router.push(`${pathname}?${params.toString()}`);
-          }}
-        />
-
-        <DateRangePicker
-          value={dateRangeCierre}
-          placeholder="Fecha de cierre"
-          onChange={(range) => {
-            const params = new URLSearchParams(searchParams.toString());
-            if (range?.from) {
-              params.set("desde_cierre", format(range.from, "yyyy-MM-dd"));
-            } else {
-              params.delete("desde_cierre");
-            }
-            if (range?.to) {
-              params.set("hasta_cierre", format(range.to, "yyyy-MM-dd"));
-            } else {
-              params.delete("hasta_cierre");
-            }
-            router.push(`${pathname}?${params.toString()}`);
-          }}
+      <div className="relative min-w-[180px] flex-[2] sm:max-w-[260px]">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar..."
+          className="pl-8"
         />
       </div>
+
+      <Select value={estadoInterno} onValueChange={(v) => setParam("estado_interno", v === "todos" ? undefined : v)}>
+        <SelectTrigger className="w-auto min-w-[170px] flex-1 sm:max-w-[220px]">
+          <SelectValue placeholder="Estado interno" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos los estados internos</SelectItem>
+          {ESTADOS_INTERNOS.map((estado) => (
+            <SelectItem key={estado} value={estado}>
+              {estado}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={estadoProveedor}
+        onValueChange={(v) => setParam("estado_proveedor", v === "todos" ? undefined : v)}
+      >
+        <SelectTrigger className="w-auto min-w-[170px] flex-1 sm:max-w-[220px]">
+          <SelectValue placeholder="Estado proveedor" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos los estados proveedor</SelectItem>
+          {ESTADOS_PROVEEDOR.map((estado) => (
+            <SelectItem key={estado} value={estado}>
+              {estado}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <DateRangePicker
+        className="w-auto min-w-[170px] flex-1 sm:max-w-[220px]"
+        value={dateRange}
+        placeholder="Fecha de apertura"
+        onChange={(range) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (range?.from) {
+            params.set("desde", format(range.from, "yyyy-MM-dd"));
+          } else {
+            params.delete("desde");
+          }
+          if (range?.to) {
+            params.set("hasta", format(range.to, "yyyy-MM-dd"));
+          } else {
+            params.delete("hasta");
+          }
+          router.push(`${pathname}?${params.toString()}`);
+        }}
+      />
+
+      <DateRangePicker
+        className="w-auto min-w-[170px] flex-1 sm:max-w-[220px]"
+        value={dateRangeCierre}
+        placeholder="Fecha de cierre"
+        onChange={(range) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (range?.from) {
+            params.set("desde_cierre", format(range.from, "yyyy-MM-dd"));
+          } else {
+            params.delete("desde_cierre");
+          }
+          if (range?.to) {
+            params.set("hasta_cierre", format(range.to, "yyyy-MM-dd"));
+          } else {
+            params.delete("hasta_cierre");
+          }
+          router.push(`${pathname}?${params.toString()}`);
+        }}
+      />
 
       {activeFilterCount > 0 && (
-        <Button
-          variant="ghost"
-          className="xl:ml-auto"
-          onClick={() => router.push(pathname)}
-        >
+        <Button variant="ghost" className="ml-auto" onClick={() => router.push(pathname)}>
           Limpiar filtros ({activeFilterCount})
         </Button>
       )}
