@@ -51,6 +51,8 @@ export function CasosFilters() {
   const estadoProveedor = searchParams.get("estado_proveedor") ?? "todos";
   const desde = searchParams.get("desde");
   const hasta = searchParams.get("hasta");
+  const desdeCierre = searchParams.get("desde_cierre");
+  const hastaCierre = searchParams.get("hasta_cierre");
   const columna = searchParams.get("columna") ?? "todas";
   const qParam = searchParams.get("q") ?? "";
 
@@ -74,11 +76,21 @@ export function CasosFilters() {
       ? { from: desde ? new Date(desde) : undefined, to: hasta ? new Date(hasta) : undefined }
       : undefined;
 
+  const dateRangeCierre: DateRange | undefined =
+    desdeCierre || hastaCierre
+      ? {
+          from: desdeCierre ? new Date(desdeCierre) : undefined,
+          to: hastaCierre ? new Date(hastaCierre) : undefined,
+        }
+      : undefined;
+
   const activeFilterCount = [
     estadoInterno !== "todos",
     estadoProveedor !== "todos",
     Boolean(desde),
     Boolean(hasta),
+    Boolean(desdeCierre),
+    Boolean(hastaCierre),
     Boolean(qParam),
   ].filter(Boolean).length;
 
@@ -155,6 +167,25 @@ export function CasosFilters() {
               params.set("hasta", range.to.toISOString().slice(0, 10));
             } else {
               params.delete("hasta");
+            }
+            router.push(`${pathname}?${params.toString()}`);
+          }}
+        />
+
+        <DateRangePicker
+          value={dateRangeCierre}
+          placeholder="Fecha de cierre"
+          onChange={(range) => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (range?.from) {
+              params.set("desde_cierre", range.from.toISOString().slice(0, 10));
+            } else {
+              params.delete("desde_cierre");
+            }
+            if (range?.to) {
+              params.set("hasta_cierre", range.to.toISOString().slice(0, 10));
+            } else {
+              params.delete("hasta_cierre");
             }
             router.push(`${pathname}?${params.toString()}`);
           }}

@@ -35,6 +35,8 @@ interface CasosPageProps {
     estado_proveedor?: string;
     desde?: string;
     hasta?: string;
+    desde_cierre?: string;
+    hasta_cierre?: string;
     columna?: string;
     q?: string;
     orderBy?: string;
@@ -69,6 +71,12 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   }
   if (searchParams.hasta) {
     query = query.lte("fecha_apertura", searchParams.hasta);
+  }
+  if (searchParams.desde_cierre) {
+    query = query.gte("fecha_cierre", searchParams.desde_cierre);
+  }
+  if (searchParams.hasta_cierre) {
+    query = query.lte("fecha_cierre", searchParams.hasta_cierre);
   }
 
   const q = searchParams.q?.trim();
@@ -115,6 +123,10 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
       <CasosFilters />
 
       <CasosTable casos={casos} canEdit={canEdit} />
+
+      <p className="text-sm text-muted-foreground">
+        {casos.length} {casos.length === 1 ? "caso" : "casos"}
+      </p>
     </div>
   );
 }
