@@ -100,7 +100,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }));
   const categoriaCounts = groupByCategoria(abiertosRows);
   const urgenciaCounts = groupByUrgencia(abiertosRows);
-  const tecnicoCounts = groupByTecnico(abiertosRows);
+  const tecnicoCounts = groupByTecnico(cerradosRows);
 
   const solicitanteCounts = new Map<string, number>();
   for (const row of abiertosRows) {
@@ -194,7 +194,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           />
           <RankedBarChart
             title="Carga de trabajo por técnico"
-            description="Casos abiertos en el periodo, por técnico asignado"
+            description="Casos cerrados en el periodo, por técnico asignado"
             data={tecnicoCounts}
           />
         </div>

@@ -57,7 +57,7 @@ function splitTecnicos(tecnico: string | null): string[] {
 // El equipo real de soporte son estos dos; el resto de valores que aparecen en
 // tecnico_asignado (cuentas de bot como "titan chatbot", asignaciones puntuales de
 // otras áreas) no cuentan como carga de trabajo. Ajustar aquí si el equipo cambia.
-const TECNICOS_EQUIPO = ["Daniel Alejandro Melo (4387)", "Jean Carlo Jimenez Vanegas (5512)"];
+const TECNICOS_EQUIPO = ["Daniel Alejandro Melo", "Jean Carlo Jimenez Vanegas"];
 
 export function groupByTecnico(rows: Caso[], topN = 5): { label: string; value: number }[] {
   const counts = new Map<string, number>();
