@@ -2,7 +2,9 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { CasosFilters } from "@/components/casos/casos-filters";
 import { CasosTable } from "@/components/casos/casos-table";
-import type { EstadoInterno, EstadoProveedor } from "@/lib/supabase/types";
+import { ImportTareasDialog } from "@/components/proveedor/import-tareas-dialog";
+import { TareasProveedorTable } from "@/components/proveedor/tareas-proveedor-table";
+import type { CasoProveedor, EstadoInterno, EstadoProveedor } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +115,15 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     );
   }
 
+  let tareasProveedor: CasoProveedor[] = [];
+  if (canEdit) {
+    const { data } = await supabase
+      .from("casos_proveedor")
+      .select("*")
+      .order("fecha_inicio", { ascending: false });
+    tareasProveedor = data ?? [];
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -129,6 +140,16 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}
       </p>
+
+      {canEdit && (
+        <section className="space-y-4 border-t pt-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold tracking-tight">Tareas del proveedor (import)</h2>
+            <ImportTareasDialog />
+          </div>
+          <TareasProveedorTable tareas={tareasProveedor} />
+        </section>
+      )}
     </div>
   );
 }

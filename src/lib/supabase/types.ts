@@ -50,6 +50,30 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["casos"]["Row"]>;
         Relationships: [];
       };
+      casos_proveedor: {
+        Row: {
+          id: string;
+          id_tarea: number;
+          autor: string | null;
+          fecha_inicio: string | null;
+          fecha_fin: string | null;
+          asunto: string | null;
+          asignatario: string | null;
+          tipo_facturacion: string | null;
+          prioridad: string | null;
+          proyecto: string | null;
+          porcentaje_realizado: number | null;
+          actualizado_por: string | null;
+          estado: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["casos_proveedor"]["Row"]> & {
+          id_tarea: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["casos_proveedor"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -57,3 +81,4 @@ export type Database = {
 };
 
 export type Caso = Database["public"]["Tables"]["casos"]["Row"];
+export type CasoProveedor = Database["public"]["Tables"]["casos_proveedor"]["Row"];
