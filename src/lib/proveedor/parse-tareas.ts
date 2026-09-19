@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { cellToText, parseFechaTexto } from "@/lib/xlsx/shared";
+import { assertImportFileSize, cellToText, parseFechaTexto } from "@/lib/xlsx/shared";
 
 export type ParsedTareaProveedor = {
   id_tarea: number;
@@ -55,6 +55,7 @@ function parsePorcentaje(value: unknown): number | null {
 }
 
 export function parseTareasProveedor(buffer: ArrayBuffer): ParseResult {
+  assertImportFileSize(buffer.byteLength);
   // El export de esta plataforma viene en Windows-1252, no UTF-8 (confirmado
   // contra un archivo real: leerlo como UTF-8 corrompe las tildes, ej.
   // "última" -> "�ltima"). Se decodifica explícitamente antes de pasarlo a

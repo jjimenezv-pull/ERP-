@@ -1,6 +1,11 @@
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
-import { cellToText, normalizeEstadoInterno, parseFechaTexto } from "@/lib/xlsx/shared";
+import {
+  assertImportFileSize,
+  cellToText,
+  normalizeEstadoInterno,
+  parseFechaTexto,
+} from "@/lib/xlsx/shared";
 import type { ParsedCasoRow, ParseError, ParseResult } from "@/lib/xlsx/parse-casos";
 
 // Columnas requeridas del CSV exportado por GLPI, buscadas por nombre de encabezado
@@ -44,6 +49,7 @@ function parseIdGlpi(value: unknown): number | null {
 }
 
 export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
+  assertImportFileSize(buffer.byteLength);
   // `raw: true` en el READ (no solo en sheet_to_json) es crítico: sin esto,
   // SheetJS detecta celdas con forma de fecha ("02-07-2026") y las convierte
   // a un serial numérico de Excel usando una heurística en inglés (mes

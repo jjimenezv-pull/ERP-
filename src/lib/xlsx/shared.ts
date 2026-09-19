@@ -16,6 +16,21 @@ export const DATE_FORMATS = [
   "yyyy-MM-dd",
 ];
 
+// Tope defensivo para archivos importados por el usuario (xlsx/csv). El
+// contenido de estos archivos es completamente controlado por quien los
+// selecciona y se parsea en el navegador con SheetJS antes de cualquier
+// validación propia de la app; sin un límite, un archivo desproporcionadamente
+// grande puede colgar el hilo principal del navegador. 20 MB es muy superior
+// a un export real de GLPI o del proveedor (que pesan unos pocos MB).
+export const MAX_IMPORT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+
+export function assertImportFileSize(byteLength: number): void {
+  if (byteLength > MAX_IMPORT_FILE_SIZE_BYTES) {
+    const maxMb = Math.floor(MAX_IMPORT_FILE_SIZE_BYTES / (1024 * 1024));
+    throw new Error(`El archivo supera el tamaño máximo permitido (${maxMb} MB).`);
+  }
+}
+
 export function cellToText(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   // GLPI a veces exporta "<br>" literal cuando una celda trae varios valores

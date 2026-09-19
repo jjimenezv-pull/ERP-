@@ -1,7 +1,12 @@
 import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import type { EstadoInterno } from "@/lib/supabase/types";
-import { cellToText, normalizeEstadoInterno, parseFechaTexto } from "@/lib/xlsx/shared";
+import {
+  assertImportFileSize,
+  cellToText,
+  normalizeEstadoInterno,
+  parseFechaTexto,
+} from "@/lib/xlsx/shared";
 
 // Estructura del xlsx exportado por GLPI: siempre estas 13 columnas, en este orden.
 // No hay mapeo configurable porque el formato de exportación es fijo.
@@ -64,6 +69,7 @@ function parseIdGlpi(idRaw: unknown, tituloRaw: unknown): { id: number | null; m
 }
 
 export function parseCasosXlsx(buffer: ArrayBuffer): ParseResult {
+  assertImportFileSize(buffer.byteLength);
   const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {

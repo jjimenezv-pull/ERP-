@@ -51,8 +51,12 @@ export function ImportDialog() {
       const buffer = await file.arrayBuffer();
       const parser = file.name.toLowerCase().endsWith(".csv") ? parseCasosCsv : parseCasosXlsx;
       setParseResult(parser(buffer));
-    } catch {
-      toast.error("No se pudo leer el archivo. Verifica que sea un .xlsx o .csv válido.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No se pudo leer el archivo. Verifica que sea un .xlsx o .csv válido."
+      );
       setParseResult(null);
     }
   }

@@ -47,8 +47,12 @@ export function ImportTareasDialog() {
     try {
       const buffer = await file.arrayBuffer();
       setParseResult(parseTareasProveedor(buffer));
-    } catch {
-      toast.error("No se pudo leer el archivo. Verifica que sea un .csv válido.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No se pudo leer el archivo. Verifica que sea un .csv válido."
+      );
       setParseResult(null);
     }
   }

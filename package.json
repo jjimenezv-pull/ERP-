@@ -34,7 +34,7 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.15.13",
