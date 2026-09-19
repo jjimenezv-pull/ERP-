@@ -76,7 +76,16 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      cambiar_rol_usuario_seguro: {
+        Args: { target_id: string; nuevo_rol: string };
+        Returns: void;
+      };
+      bloquear_usuario_seguro: {
+        Args: { target_id: string; bloquear: boolean };
+        Returns: void;
+      };
+    };
   };
 };
 
