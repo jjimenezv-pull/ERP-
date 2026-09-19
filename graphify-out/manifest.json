@@ -18,10 +18,10 @@
     "semantic_hash": "dea3269afa6e91aaa465e7b7cde32078"
   },
   "package.json": {
-    "mtime": 1789091611.2699852,
-    "seen": 1789268289.699773,
-    "ast_hash": "48dbb410d94d22e33ac3a66ba91c5342",
-    "semantic_hash": "48dbb410d94d22e33ac3a66ba91c5342"
+    "mtime": 1789526997.8771005,
+    "seen": 1789778384.7752125,
+    "ast_hash": "9750ee3da7ac82f8be8eea31ccf26297",
+    "semantic_hash": "9750ee3da7ac82f8be8eea31ccf26297"
   },
   "postcss.config.mjs": {
     "mtime": 1788618927.3846896,
@@ -84,10 +84,10 @@
     "semantic_hash": "3a31b349d27a04cf082b2a4d3330fe87"
   },
   "src/components/casos/import-dialog.tsx": {
-    "mtime": 1789221294.6591997,
-    "seen": 1789268289.6998267,
-    "ast_hash": "72300148f0a558f19ff5a172d4e5f195",
-    "semantic_hash": "72300148f0a558f19ff5a172d4e5f195"
+    "mtime": 1789526997.8771005,
+    "seen": 1789778384.775283,
+    "ast_hash": "4f0599b7582869ea06e11fb022b67572",
+    "semantic_hash": "4f0599b7582869ea06e11fb022b67572"
   },
   "src/components/dashboard/backlog-aging-card.tsx": {
     "mtime": 1788953505.0813584,
@@ -306,10 +306,10 @@
     "semantic_hash": "5a6fd53fdcf2be529e9cc0b718fde352"
   },
   "src/lib/xlsx/parse-casos.ts": {
-    "mtime": 1789095994.1819968,
-    "seen": 1789268289.6999419,
-    "ast_hash": "6ae16d3d4e989017fcf0200632d005ca",
-    "semantic_hash": "6ae16d3d4e989017fcf0200632d005ca"
+    "mtime": 1789526997.8930428,
+    "seen": 1789778384.7754087,
+    "ast_hash": "4e7b2ee3f712331c9ecc3ee4a65a4dce",
+    "semantic_hash": "4e7b2ee3f712331c9ecc3ee4a65a4dce"
   },
   "tailwind.config.ts": {
     "mtime": 1788619414.412258,
@@ -420,10 +420,10 @@
     "semantic_hash": "92e24a690822ac6b4e2a89fbbe5cdab4"
   },
   "src/components/proveedor/import-tareas-dialog.tsx": {
-    "mtime": 1789262573.7337973,
-    "seen": 1789268289.6998644,
-    "ast_hash": "3bd3418e6e1953ce185598a0fd3432ff",
-    "semantic_hash": "3bd3418e6e1953ce185598a0fd3432ff"
+    "mtime": 1789526997.8771005,
+    "seen": 1789778384.775326,
+    "ast_hash": "3194cdbdddbb63acd77937f36bf29f20",
+    "semantic_hash": "3194cdbdddbb63acd77937f36bf29f20"
   },
   "src/components/proveedor/tareas-proveedor-table.tsx": {
     "mtime": 1789262585.984076,
@@ -456,10 +456,10 @@
     "semantic_hash": "11f75f038b68dc357b1721cb62320fcd"
   },
   "src/lib/proveedor/parse-tareas.ts": {
-    "mtime": 1789262549.5877845,
-    "seen": 1789268289.6999228,
-    "ast_hash": "34d836fcd37818ca3400de1e35263a42",
-    "semantic_hash": "34d836fcd37818ca3400de1e35263a42"
+    "mtime": 1789526997.8915298,
+    "seen": 1789778384.7753887,
+    "ast_hash": "3c7b156df985234cefebf191254db808",
+    "semantic_hash": "3c7b156df985234cefebf191254db808"
   },
   "src/lib/supabase/middleware.ts": {
     "mtime": 1789091694.311401,
@@ -474,16 +474,16 @@
     "semantic_hash": "37f7188dc5fab31ebc3b5dd78bb863c1"
   },
   "src/lib/xlsx/parse-casos-csv.ts": {
-    "mtime": 1789182557.9676702,
-    "seen": 1789268289.6999397,
-    "ast_hash": "38f86afc1a610a610ec5e4b066b48700",
-    "semantic_hash": "38f86afc1a610a610ec5e4b066b48700"
+    "mtime": 1789526997.8915298,
+    "seen": 1789778384.7754066,
+    "ast_hash": "91f8c83c34aebb276ff543bf0673fa0f",
+    "semantic_hash": "91f8c83c34aebb276ff543bf0673fa0f"
   },
   "src/lib/xlsx/shared.ts": {
-    "mtime": 1789095959.6385984,
-    "seen": 1789268289.6999438,
-    "ast_hash": "71e64a1933d7ca80d26aaf6afecb5803",
-    "semantic_hash": "71e64a1933d7ca80d26aaf6afecb5803"
+    "mtime": 1789526997.8930428,
+    "seen": 1789778384.7754107,
+    "ast_hash": "d1886ef82cfdfecf855b148891dc0d55",
+    "semantic_hash": "d1886ef82cfdfecf855b148891dc0d55"
   },
   "src/middleware.ts": {
     "mtime": 1789175835.4078772,
