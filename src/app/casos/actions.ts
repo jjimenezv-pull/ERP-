@@ -3,11 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-current-profile";
-import type { EstadoProveedor } from "@/lib/supabase/types";
 
 export async function updateCasoProveedor(
   id: string,
-  data: { caso_escalado_proveedor?: string | null; estado_proveedor?: EstadoProveedor }
+  data: { caso_escalado_proveedor?: string | null }
 ) {
   await requireAdmin();
 

@@ -16,9 +16,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/date-range-picker";
+import { ESTADO_NO_ESCALADO, ESTADO_SIN_MATCH } from "@/lib/proveedor/cruce";
 
 const ESTADOS_INTERNOS = ["En curso (asignada)", "Cerrado", "En espera"] as const;
-const ESTADOS_PROVEEDOR = ["N/A", "Pendiente", "En revisión", "Resuelto"] as const;
 
 const COLUMNAS_BUSCABLES = [
   { value: "todas", label: "Todas las columnas" },
@@ -30,7 +30,8 @@ const COLUMNAS_BUSCABLES = [
   { value: "ubicacion", label: "Ubicación" },
 ] as const;
 
-export function CasosFilters() {
+export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] }) {
+  const opcionesEstadoProveedor = [ESTADO_NO_ESCALADO, ESTADO_SIN_MATCH, ...estadosProveedor];
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -153,7 +154,7 @@ export function CasosFilters() {
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todos los estados proveedor</SelectItem>
-          {ESTADOS_PROVEEDOR.map((estado) => (
+          {opcionesEstadoProveedor.map((estado) => (
             <SelectItem key={estado} value={estado}>
               {estado}
             </SelectItem>

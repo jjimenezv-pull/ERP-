@@ -4,7 +4,9 @@ import { CasosFilters } from "@/components/casos/casos-filters";
 import { CasosTable } from "@/components/casos/casos-table";
 import { ImportTareasDialog } from "@/components/proveedor/import-tareas-dialog";
 import { TareasProveedorTable } from "@/components/proveedor/tareas-proveedor-table";
-import type { CasoProveedor, EstadoInterno, EstadoProveedor } from "@/lib/supabase/types";
+import { aplicarEstadoProveedor } from "@/lib/proveedor/cruce";
+import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
+import type { CasoProveedor, EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -56,20 +58,23 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     : "fecha_apertura";
   const orderDir = searchParams.orderDir === "asc" ? "asc" : "desc";
 
+  const ordenPorEstadoProveedor = orderBy === "estado_proveedor";
+
   // A diferencia de /casos, esta vista siempre excluye los casos no
-  // escalados a proveedor — no es un filtro que el usuario pueda quitar
-  // desde la UI, va fijo en la query.
+  // escalados a proveedor (sin referencia escrita) — no es un filtro que el
+  // usuario pueda quitar desde la UI, se aplica en memoria más abajo.
   let query = supabase
     .from("casos")
     .select("*")
-    .neq("estado_proveedor", "N/A")
-    .order(orderBy, { ascending: orderDir === "asc", nullsFirst: false });
+    .not("caso_escalado_proveedor", "is", null)
+    .neq("caso_escalado_proveedor", "")
+    .order(ordenPorEstadoProveedor ? "fecha_apertura" : orderBy, {
+      ascending: orderDir === "asc",
+      nullsFirst: false,
+    });
 
   if (searchParams.estado_interno) {
     query = query.eq("estado_interno", searchParams.estado_interno as EstadoInterno);
-  }
-  if (searchParams.estado_proveedor) {
-    query = query.eq("estado_proveedor", searchParams.estado_proveedor as EstadoProveedor);
   }
   if (searchParams.desde) {
     query = query.gte("fecha_apertura", searchParams.desde);
@@ -105,15 +110,24 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     }
   }
 
-  const { data: casos, error } = await query;
+  const [{ data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] = await Promise.all([
+    query,
+    cargarMapaEstados(),
+  ]);
 
-  if (error) {
+  if (error || errorMapa) {
     return (
       <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-        Error al cargar los casos: {error.message}
+        Error al cargar los casos: {error?.message ?? errorMapa}
       </div>
     );
   }
+
+  const casos = aplicarEstadoProveedor(data ?? [], mapa, {
+    filtro: searchParams.estado_proveedor,
+    soloEscalados: true,
+    ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
+  });
 
   let tareasProveedor: CasoProveedor[] = [];
   if (canEdit) {
@@ -133,7 +147,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
         </div>
       </div>
 
-      <CasosFilters />
+      <CasosFilters estadosProveedor={estadosProveedor} />
 
       <CasosTable casos={casos} canEdit={canEdit} />
 

@@ -9,26 +9,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import type { EstadoProveedor } from "@/lib/supabase/types";
 
-// Orden fijo validado (adyacente en el anillo de la dona): ver scripts/validate_palette.js
-// de la skill dataviz. La paleta de "status" (good/warning/serious) no pasa el validador
-// para 4 categorías comparadas entre sí, por eso se usa la paleta categórica.
-const COLOR_BY_ESTADO: Record<EstadoProveedor, string> = {
-  "N/A": "var(--chart-1)",
-  Pendiente: "var(--chart-2)",
-  "En revisión": "var(--chart-3)",
-  Resuelto: "var(--chart-4)",
+// Colores por estado real del proveedor. "No escalado" (el grueso de los casos) y
+// "Sin match" van en tonos neutros para que no compitan con los estados reales;
+// un estado nuevo que aparezca en un import cae en el neutro hasta agregarlo aquí.
+const COLOR_BY_ESTADO: Record<string, string> = {
+  "No escalado": "var(--chart-axis)",
+  "Sin match": "var(--muted-foreground)",
+  "En Desarrollo": "var(--chart-1)",
+  "Pendiente Cliente": "var(--chart-2)",
+  "En Revision": "var(--chart-3)",
+  Cerrada: "var(--chart-4)",
+  Caducada: "var(--chart-5)",
 };
+const COLOR_FALLBACK = "var(--muted-foreground)";
 
 export function EstadoProveedorChart({
   data,
 }: {
-  data: { estado: EstadoProveedor; count: number }[];
+  data: { estado: string; count: number }[];
 }) {
   const chartData = data
     .filter((d) => d.count > 0)
-    .map((d) => ({ name: d.estado, value: d.count, fill: COLOR_BY_ESTADO[d.estado] }));
+    .map((d) => ({ name: d.estado, value: d.count, fill: COLOR_BY_ESTADO[d.estado] ?? COLOR_FALLBACK }));
 
   const total = chartData.reduce((sum, d) => sum + d.value, 0);
 

@@ -11,7 +11,13 @@ import {
   groupByUrgencia,
   topOldestOpen,
 } from "@/lib/dashboard-metrics";
-import type { EstadoProveedor } from "@/lib/supabase/types";
+import {
+  ESTADO_NO_ESCALADO,
+  ESTADO_SIN_MATCH,
+  conEstadoProveedor,
+  esPendienteProveedor,
+} from "@/lib/proveedor/cruce";
+import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
 import { DashboardFilters } from "@/components/dashboard/dashboard-filters";
 import { EstadoInternoChart } from "@/components/dashboard/estado-interno-chart";
 import { SlaKpiCard } from "@/components/dashboard/sla-kpi-card";
@@ -27,7 +33,6 @@ import { ExportPptxButton } from "@/components/dashboard/export-pptx-button";
 
 export const dynamic = "force-dynamic";
 
-const ESTADOS_PROVEEDOR: EstadoProveedor[] = ["N/A", "Pendiente", "En revisión", "Resuelto"];
 const TREND_WEEKS = 8;
 const SLA_WINDOW_DAYS = 7;
 const SLA_TARGET_PCT = 90;
@@ -56,13 +61,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     { data: all, error: errorAll },
     { data: abiertos, error: errorAbiertos },
     { data: cerrados, error: errorCerrados },
-  ] = await Promise.all([allQuery, abiertosQuery, cerradosQuery]);
+    { mapa: mapaProveedor, estados: estadosProveedor, error: errorProveedor },
+  ] = await Promise.all([allQuery, abiertosQuery, cerradosQuery, cargarMapaEstados()]);
 
-  const firstError = errorAll ?? errorAbiertos ?? errorCerrados;
-  if (firstError) {
+  const firstErrorMsg = (errorAll ?? errorAbiertos ?? errorCerrados)?.message ?? errorProveedor;
+  if (firstErrorMsg) {
     return (
       <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-        Error al cargar el dashboard: {firstError.message}
+        Error al cargar el dashboard: {firstErrorMsg}
       </div>
     );
   }
@@ -79,9 +85,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     e.estado === "Cerrado" ? { ...e, count: cerradosEnPeriodo } : e
   );
   const backlogAging = computeBacklogAging(allRows, today);
-  const escaladosProveedor = allRows.filter((r) => (r.estado_proveedor ?? "N/A") !== "N/A");
-  const escaladosPendientes = escaladosProveedor.filter(
-    (r) => r.estado_proveedor === "Pendiente" || r.estado_proveedor === "En revisión"
+  // Snapshot de todo el histórico: escalado = tiene referencia al proveedor;
+  // pendiente = escalado cuyo estado real no es Cerrada/Caducada.
+  const escaladosProveedor = conEstadoProveedor(allRows, mapaProveedor).filter(
+    (r) => r.estado_proveedor_real !== ESTADO_NO_ESCALADO
+  );
+  const escaladosPendientes = escaladosProveedor.filter((r) =>
+    esPendienteProveedor(r.estado_proveedor_real)
   ).length;
   const oldestOpen = topOldestOpen(allRows, today, 5);
   const volumeTrend = bucketVolumeTrend(allRows, TREND_WEEKS).map((d) => ({ x: d.semana, y: d.casos }));
@@ -94,10 +104,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const durationStats = computeDurationStats(cerradosRows, SLA_WINDOW_DAYS);
 
   // Distribución dentro del periodo seleccionado.
-  const estadoProveedorCounts = ESTADOS_PROVEEDOR.map((estado) => ({
-    estado,
-    count: abiertosRows.filter((r) => (r.estado_proveedor ?? "N/A") === estado).length,
-  }));
+  const abiertosConEstado = conEstadoProveedor(abiertosRows, mapaProveedor);
+  const estadoProveedorCounts = [ESTADO_NO_ESCALADO, ESTADO_SIN_MATCH, ...estadosProveedor].map(
+    (estado) => ({
+      estado,
+      count: abiertosConEstado.filter((r) => r.estado_proveedor_real === estado).length,
+    })
+  );
   const categoriaCounts = groupByCategoria(abiertosRows);
   const urgenciaCounts = groupByUrgencia(abiertosRows);
   const tecnicoCounts = groupByTecnico(cerradosRows);

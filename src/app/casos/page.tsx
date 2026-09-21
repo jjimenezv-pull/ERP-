@@ -3,7 +3,9 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { CasosFilters } from "@/components/casos/casos-filters";
 import { CasosTable } from "@/components/casos/casos-table";
 import { ImportDialog } from "@/components/casos/import-dialog";
-import type { EstadoInterno, EstadoProveedor } from "@/lib/supabase/types";
+import { aplicarEstadoProveedor } from "@/lib/proveedor/cruce";
+import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
+import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -55,16 +57,20 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
     : "fecha_apertura";
   const orderDir = searchParams.orderDir === "asc" ? "asc" : "desc";
 
+  const ordenPorEstadoProveedor = orderBy === "estado_proveedor";
+
+  // "estado_proveedor" es derivado (cruce con casos_proveedor), no una columna
+  // real: se ordena en memoria más abajo, la base ordena por fecha mientras tanto.
   let query = supabase
     .from("casos")
     .select("*")
-    .order(orderBy, { ascending: orderDir === "asc", nullsFirst: false });
+    .order(ordenPorEstadoProveedor ? "fecha_apertura" : orderBy, {
+      ascending: orderDir === "asc",
+      nullsFirst: false,
+    });
 
   if (searchParams.estado_interno) {
     query = query.eq("estado_interno", searchParams.estado_interno as EstadoInterno);
-  }
-  if (searchParams.estado_proveedor) {
-    query = query.eq("estado_proveedor", searchParams.estado_proveedor as EstadoProveedor);
   }
   if (searchParams.desde) {
     query = query.gte("fecha_apertura", searchParams.desde);
@@ -100,15 +106,23 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
     }
   }
 
-  const { data: casos, error } = await query;
+  const [{ data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] = await Promise.all([
+    query,
+    cargarMapaEstados(),
+  ]);
 
-  if (error) {
+  if (error || errorMapa) {
     return (
       <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-        Error al cargar los casos: {error.message}
+        Error al cargar los casos: {error?.message ?? errorMapa}
       </div>
     );
   }
+
+  const casos = aplicarEstadoProveedor(data ?? [], mapa, {
+    filtro: searchParams.estado_proveedor,
+    ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
+  });
 
   return (
     <div className="space-y-4">
@@ -120,7 +134,7 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
         {canEdit && <ImportDialog />}
       </div>
 
-      <CasosFilters />
+      <CasosFilters estadosProveedor={estadosProveedor} />
 
       <CasosTable casos={casos} canEdit={canEdit} />
 

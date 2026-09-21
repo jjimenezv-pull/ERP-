@@ -16,18 +16,9 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { Caso, EstadoProveedor } from "@/lib/supabase/types";
+import type { CasoConEstado } from "@/lib/proveedor/cruce";
 import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
-
-const ESTADOS_PROVEEDOR: EstadoProveedor[] = ["N/A", "Pendiente", "En revisión", "Resuelto"];
 
 const ESTADO_INTERNO_CLASS: Record<string, string> = {
   "En espera": "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
@@ -35,11 +26,16 @@ const ESTADO_INTERNO_CLASS: Record<string, string> = {
   Cerrado: "border-transparent bg-[var(--status-cerrado)] text-[var(--status-cerrado-foreground)]",
 };
 
+// Estados reales de la plataforma del proveedor. Cualquier estado nuevo que
+// aparezca en un import cae sin color (badge neutro) hasta que se agregue aquí.
 const ESTADO_PROVEEDOR_CLASS: Record<string, string> = {
-  "N/A": "",
-  Pendiente: "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
-  "En revisión": "border-transparent bg-[var(--status-revision)] text-[var(--status-revision-foreground)]",
-  Resuelto: "border-transparent bg-[var(--status-curso)] text-[var(--status-curso-foreground)]",
+  "No escalado": "",
+  "Sin match": "border-dashed text-muted-foreground",
+  "En Desarrollo": "border-transparent bg-[var(--status-curso)] text-[var(--status-curso-foreground)]",
+  "En Revision": "border-transparent bg-[var(--status-revision)] text-[var(--status-revision-foreground)]",
+  "Pendiente Cliente": "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
+  Cerrada: "border-transparent bg-[var(--status-cerrado)] text-[var(--status-cerrado-foreground)]",
+  Caducada: "",
 };
 
 // Whitelist de columnas ordenables: debe coincidir con la de src/app/casos/page.tsx.
@@ -118,7 +114,7 @@ function SortableHead({
   );
 }
 
-export function CasosTable({ casos, canEdit }: { casos: Caso[]; canEdit: boolean }) {
+export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -164,11 +160,6 @@ export function CasosTable({ casos, canEdit }: { casos: Caso[]; canEdit: boolean
 
   function handleEscaladoBlur(id: string, value: string) {
     persist(id, { caso_escalado_proveedor: value || null });
-  }
-
-  function handleEstadoProveedorChange(id: string, value: EstadoProveedor) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, estado_proveedor: value } : r)));
-    persist(id, { estado_proveedor: value });
   }
 
   if (rows.length === 0) {
@@ -268,33 +259,12 @@ export function CasosTable({ casos, canEdit }: { casos: Caso[]; canEdit: boolean
                 )}
               </TableCell>
               <TableCell>
-                {canEdit ? (
-                  <Select
-                    value={caso.estado_proveedor ?? "N/A"}
-                    onValueChange={(v) => handleEstadoProveedorChange(caso.id, v as EstadoProveedor)}
-                    disabled={isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ESTADOS_PROVEEDOR.map((estado) => (
-                        <SelectItem key={estado} value={estado}>
-                          <Badge variant="outline" className={cn(ESTADO_PROVEEDOR_CLASS[estado])}>
-                            {estado}
-                          </Badge>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className={cn(ESTADO_PROVEEDOR_CLASS[caso.estado_proveedor ?? "N/A"])}
-                  >
-                    {caso.estado_proveedor ?? "N/A"}
-                  </Badge>
-                )}
+                <Badge
+                  variant="outline"
+                  className={cn(ESTADO_PROVEEDOR_CLASS[caso.estado_proveedor_real])}
+                >
+                  {caso.estado_proveedor_real}
+                </Badge>
               </TableCell>
             </TableRow>
           ))}
