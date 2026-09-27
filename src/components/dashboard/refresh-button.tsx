@@ -14,11 +14,12 @@ export function RefreshButton() {
   return (
     <Button
       variant="outline"
+      size="icon"
       onClick={() => startTransition(() => router.refresh())}
       disabled={isPending}
+      title={isPending ? "Actualizando..." : "Actualizar"}
     >
-      <RefreshCw className={cn("mr-2 h-4 w-4", isPending && "animate-spin")} />
-      {isPending ? "Actualizando..." : "Actualizar"}
+      <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
     </Button>
   );
 }

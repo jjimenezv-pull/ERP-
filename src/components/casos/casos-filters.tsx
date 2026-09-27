@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DateRange } from "react-day-picker";
 import { format, parseISO } from "date-fns";
-import { Search } from "lucide-react";
+import { Minimize2, Maximize2, Search } from "lucide-react";
 
 import {
   Select,
@@ -218,6 +218,14 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
         }}
       />
 
+      <button
+        type="button"
+        onClick={() => setParam("compact", searchParams.get("compact") ? undefined : "1")}
+        className="shrink-0 rounded-md border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        title={searchParams.get("compact") ? "Vista normal" : "Ajustar columnas"}
+      >
+        {searchParams.get("compact") ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+      </button>
       {activeFilterCount > 0 && (
         <Button variant="ghost" className="ml-auto" onClick={() => router.push(pathname)}>
           Limpiar filtros ({activeFilterCount})

@@ -2,8 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { Eye, EyeOff, Mail } from "lucide-react";
-import { toast } from "sonner";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,20 +15,34 @@ import {
 } from "@/components/ui/card";
 import { sendMagicLink, signInWithPassword } from "@/app/login/actions";
 
+function mapLoginError(msg: string): string {
+  if (msg.includes("Invalid login credentials"))
+    return "Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.";
+  if (msg.includes("Email not confirmed"))
+    return "Este correo no ha sido verificado. Usa el enlace de acceso.";
+  if (msg.includes("Too many requests"))
+    return "Demasiados intentos fallidos. Espera unos minutos antes de volver a intentarlo.";
+  if (msg.includes("User not found") || msg.includes("user_not_found"))
+    return "Este correo no tiene permiso para acceder al sistema.";
+  return "No se pudo iniciar sesión. Intenta de nuevo.";
+}
+
 function PasswordTab() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password) return;
+    setError(null);
     startTransition(async () => {
       try {
         await signInWithPassword(email.trim(), password);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo iniciar sesión");
+        setError(mapLoginError(err instanceof Error ? err.message : "Error"));
       }
     });
   }
@@ -46,7 +58,7 @@ function PasswordTab() {
           autoComplete="email"
           placeholder="nombre@empresa.com"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); setError(null); }}
           disabled={isPending}
         />
       </div>
@@ -59,7 +71,7 @@ function PasswordTab() {
             required
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setError(null); }}
             disabled={isPending}
             className="pr-10"
           />
@@ -76,6 +88,11 @@ function PasswordTab() {
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Ingresando..." : "Ingresar"}
       </Button>
+      {error && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
@@ -83,17 +100,19 @@ function PasswordTab() {
 function MagicLinkTab() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
+    setError(null);
     startTransition(async () => {
       try {
         await sendMagicLink(email.trim());
         setSent(true);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo enviar el enlace");
+        setError(err instanceof Error ? err.message : "No se pudo enviar el enlace. Intenta de nuevo.");
       }
     });
   }
@@ -129,6 +148,11 @@ function MagicLinkTab() {
         <Mail className="mr-2 h-4 w-4" />
         {isPending ? "Enviando..." : "Enviar enlace de acceso"}
       </Button>
+      {error && (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

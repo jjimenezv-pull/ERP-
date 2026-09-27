@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
-import { Minimize2, Maximize2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Maximize2, Minimize2, Search } from "lucide-react";
 
 import {
   Table,
@@ -13,6 +13,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CasoProveedor } from "@/lib/supabase/types";
 import type { CasoConEstado } from "@/lib/proveedor/cruce";
@@ -54,6 +62,44 @@ function formatFecha(value: string | null) {
   }
 }
 
+const ESTADOS_TAREA = ["En Desarrollo", "En Revision", "Pendiente Cliente", "Cerrada", "Caducada"] as const;
+
+type SortKey = "id_tarea" | "asunto" | "estado" | "fecha_inicio" | "fecha_fin" | "porcentaje_realizado";
+
+function SortableHead({
+  sortKey,
+  current,
+  dir,
+  onSort,
+  className,
+  children,
+}: {
+  sortKey: SortKey;
+  current: SortKey | null;
+  dir: "asc" | "desc";
+  onSort: (k: SortKey) => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const active = current === sortKey;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="flex items-center gap-1 whitespace-nowrap font-medium text-white/75 hover:text-white"
+      >
+        {children}
+        {active ? (
+          dir === "asc" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronsUpDown className="h-3.5 w-3.5 text-white/30" />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
 export function TareasProveedorTable({
   tareas,
   casosGlpi = [],
@@ -62,6 +108,42 @@ export function TareasProveedorTable({
   casosGlpi?: CasoConEstado[];
 }) {
   const [compact, setCompact] = useState(false);
+  const [filterEstado, setFilterEstado] = useState("todos");
+  const [filterQ, setFilterQ] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const filtered = tareas
+    .filter((t) => filterEstado === "todos" || t.estado === filterEstado)
+    .filter((t) => {
+      if (!filterQ) return true;
+      const q = filterQ.toLowerCase();
+      return (
+        t.asunto?.toLowerCase().includes(q) ||
+        String(t.id_tarea).includes(q) ||
+        t.asignatario?.toLowerCase().includes(q)
+      );
+    });
+
+  const sorted = sortKey
+    ? [...filtered].sort((a, b) => {
+        const va = a[sortKey] ?? "";
+        const vb = b[sortKey] ?? "";
+        const cmp = typeof va === "number" && typeof vb === "number"
+          ? va - vb
+          : String(va).localeCompare(String(vb), "es", { numeric: true });
+        return sortDir === "asc" ? cmp : -cmp;
+      })
+    : filtered;
 
   if (tareas.length === 0) {
     return (
@@ -73,34 +155,62 @@ export function TareasProveedorTable({
 
   return (
     <>
-      <div className="mb-1 flex justify-end">
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+        <div className="relative min-w-[180px] flex-[2] sm:max-w-[260px]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={filterQ}
+            onChange={(e) => setFilterQ(e.target.value)}
+            placeholder="Buscar..."
+            className="pl-8 h-9"
+          />
+        </div>
+        <Select value={filterEstado} onValueChange={setFilterEstado}>
+          <SelectTrigger className="w-auto min-w-[170px] flex-1 sm:max-w-[220px] h-9">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            {ESTADOS_TAREA.map((e) => (
+              <SelectItem key={e} value={e}>{e}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <button
           type="button"
-          onClick={() => setCompact(!compact)}
-          className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={() => setCompact((v) => !v)}
+          className="shrink-0 rounded-md border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
           title={compact ? "Vista normal" : "Ajustar columnas"}
         >
-          {compact ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
-          {compact ? "Vista normal" : "Ajustar columnas"}
+          {compact ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
         </button>
+        {(filterEstado !== "todos" || filterQ) && (
+          <button
+            type="button"
+            onClick={() => { setFilterEstado("todos"); setFilterQ(""); }}
+            className="ml-auto text-sm text-muted-foreground hover:text-foreground"
+          >
+            Limpiar filtros
+          </button>
+        )}
       </div>
     <div className={cn(compact && "[&_td]:py-[3px] [&_td]:px-1.5 [&_td]:text-[11px] [&_th]:py-[5px] [&_th]:px-1.5")}>
     <Table containerClassName="max-h-[50vh] rounded-md border">
       <TableHeader className="sticky top-0 z-10 bg-[#1a3d96]">
         <TableRow>
           <TableHead className="text-white">Caso GLPI</TableHead>
-          <TableHead className="text-white">ID tarea</TableHead>
-          <TableHead className="text-white">Asunto</TableHead>
-          <TableHead className="text-white">Estado</TableHead>
+          <SortableHead sortKey="id_tarea" current={sortKey} dir={sortDir} onSort={handleSort}>ID tarea</SortableHead>
+          <SortableHead sortKey="asunto" current={sortKey} dir={sortDir} onSort={handleSort}>Asunto</SortableHead>
+          <SortableHead sortKey="estado" current={sortKey} dir={sortDir} onSort={handleSort}>Estado</SortableHead>
           <TableHead className="text-white">Asignatario</TableHead>
           <TableHead className="text-white">Proyecto</TableHead>
-          <TableHead className="text-white">F. inicio</TableHead>
-          <TableHead className="text-white">F. fin</TableHead>
-          <TableHead className="text-white">% Realizado</TableHead>
+          <SortableHead sortKey="fecha_inicio" current={sortKey} dir={sortDir} onSort={handleSort}>F. inicio</SortableHead>
+          <SortableHead sortKey="fecha_fin" current={sortKey} dir={sortDir} onSort={handleSort}>F. fin</SortableHead>
+          <SortableHead sortKey="porcentaje_realizado" current={sortKey} dir={sortDir} onSort={handleSort}>% Realizado</SortableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {tareas.map((tarea) => {
+        {sorted.map((tarea) => {
           const casoGlpi = casosGlpi.find(
             (c) => c.caso_escalado_proveedor?.trim() === String(tarea.id_tarea)
           );

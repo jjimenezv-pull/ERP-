@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Eye, Minimize2, Maximize2 } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -137,7 +137,7 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
   const [rows, setRows] = useState(casos);
   const [isPending, startTransition] = useTransition();
   const [casoDetalle, setCasoDetalle] = useState<CasoConEstado | null>(null);
-  const [compact, setCompact] = useState(false);
+  const compact = !!searchParams.get("compact");
   const [descExpanded, setDescExpanded] = useState(false);
   const [solExpanded, setSolExpanded] = useState(false);
 
@@ -196,17 +196,6 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
 
   return (
     <>
-      <div className="mb-1 flex justify-end">
-        <button
-          type="button"
-          onClick={() => setCompact(!compact)}
-          className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-          title={compact ? "Vista normal" : "Ajustar columnas"}
-        >
-          {compact ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
-          {compact ? "Vista normal" : "Ajustar columnas"}
-        </button>
-      </div>
     <div className={cn(compact && "[&_td]:py-[3px] [&_td]:px-1.5 [&_td]:text-[11px] [&_th]:py-[5px] [&_th]:px-1.5")}>
     <Table containerClassName="max-h-[70vh] rounded-md border">
       <TableHeader className="sticky top-0 z-10 bg-[#1a3d96]">
