@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DateRange } from "react-day-picker";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateRangePicker } from "@/components/date-range-picker";
@@ -35,7 +35,7 @@ export function DashboardFilters() {
 
   const dateRange: DateRange | undefined =
     desde || hasta
-      ? { from: desde ? new Date(desde) : undefined, to: hasta ? new Date(hasta) : undefined }
+      ? { from: desde ? parseISO(desde) : undefined, to: hasta ? parseISO(hasta) : undefined }
       : undefined;
 
   return (

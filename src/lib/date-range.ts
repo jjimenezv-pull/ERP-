@@ -1,4 +1,4 @@
-import { format, startOfMonth, startOfWeek } from "date-fns";
+import { addDays, format, startOfMonth, startOfWeek } from "date-fns";
 
 export type Vista = "semanal" | "mensual" | "historico";
 
@@ -7,7 +7,8 @@ const DATE_FMT = "yyyy-MM-dd";
 export function defaultRangeForVista(vista: Vista): { desde: string | null; hasta: string | null } {
   const today = new Date();
   if (vista === "semanal") {
-    return { desde: format(startOfWeek(today, { weekStartsOn: 1 }), DATE_FMT), hasta: format(today, DATE_FMT) };
+    const lunes = startOfWeek(today, { weekStartsOn: 1 });
+    return { desde: format(lunes, DATE_FMT), hasta: format(addDays(lunes, 4), DATE_FMT) };
   }
   if (vista === "mensual") {
     return { desde: format(startOfMonth(today), DATE_FMT), hasta: format(today, DATE_FMT) };

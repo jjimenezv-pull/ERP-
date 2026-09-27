@@ -88,13 +88,13 @@ export function UsuariosTable({
 
   return (
     <Table containerClassName="rounded-md border">
-      <TableHeader>
+      <TableHeader className="bg-[#1a3d96]">
         <TableRow>
-          <TableHead>Correo</TableHead>
-          <TableHead>Estado</TableHead>
-          <TableHead className="min-w-[160px]">Rol</TableHead>
-          <TableHead className="min-w-[140px]">Acceso</TableHead>
-          <TableHead className="min-w-[160px]">Contraseña</TableHead>
+          <TableHead className="text-white">Correo</TableHead>
+          <TableHead className="text-white">Estado</TableHead>
+          <TableHead className="min-w-[160px] text-white">Rol</TableHead>
+          <TableHead className="min-w-[140px] text-white">Acceso</TableHead>
+          <TableHead className="min-w-[160px] text-white">Contraseña</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

@@ -39,6 +39,7 @@ interface CasosPageProps {
     hasta?: string;
     desde_cierre?: string;
     hasta_cierre?: string;
+    urgencia?: string;
     columna?: string;
     q?: string;
     orderBy?: string;
@@ -84,6 +85,9 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   if (searchParams.hasta_cierre) {
     query = query.lte("fecha_cierre", searchParams.hasta_cierre);
   }
+  if (searchParams.urgencia) {
+    query = query.eq("urgencia", searchParams.urgencia);
+  }
 
   const q = searchParams.q?.trim();
   if (q) {
@@ -123,6 +127,17 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
     filtro: searchParams.estado_proveedor,
     ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
   });
+
+  // Sin orderBy explícito: abiertos primero (En espera / En curso), luego cerrados,
+  // dentro de cada grupo por fecha_apertura desc.
+  if (!searchParams.orderBy) {
+    casos.sort((a, b) => {
+      const prioA = a.estado_interno === "Cerrado" ? 1 : 0;
+      const prioB = b.estado_interno === "Cerrado" ? 1 : 0;
+      if (prioA !== prioB) return prioA - prioB;
+      return (b.fecha_apertura ?? "").localeCompare(a.fecha_apertura ?? "");
+    });
+  }
 
   return (
     <div className="space-y-4">

@@ -4,6 +4,7 @@ import { CasosFilters } from "@/components/casos/casos-filters";
 import { CasosTable } from "@/components/casos/casos-table";
 import { ImportTareasDialog } from "@/components/proveedor/import-tareas-dialog";
 import { TareasProveedorTable } from "@/components/proveedor/tareas-proveedor-table";
+import { ProveedorKpiCards } from "@/components/proveedor/proveedor-kpi-cards";
 import { aplicarEstadoProveedor } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
 import type { CasoProveedor, EstadoInterno } from "@/lib/supabase/types";
@@ -44,6 +45,7 @@ interface ProveedorPageProps {
     q?: string;
     orderBy?: string;
     orderDir?: string;
+    urgencia?: string;
   };
 }
 
@@ -87,6 +89,9 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
   }
   if (searchParams.hasta_cierre) {
     query = query.lte("fecha_cierre", searchParams.hasta_cierre);
+  }
+  if (searchParams.urgencia) {
+    query = query.eq("urgencia", searchParams.urgencia);
   }
 
   const q = searchParams.q?.trim();
@@ -161,7 +166,8 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
             <h2 className="text-xl font-semibold tracking-tight">Tareas del proveedor (import)</h2>
             <ImportTareasDialog />
           </div>
-          <TareasProveedorTable tareas={tareasProveedor} />
+          <ProveedorKpiCards tareas={tareasProveedor} />
+          <TareasProveedorTable tareas={tareasProveedor} casosGlpi={casos} />
         </section>
       )}
     </div>

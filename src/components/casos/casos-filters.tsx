@@ -20,6 +20,8 @@ import { ESTADO_NO_ESCALADO, ESTADO_SIN_MATCH } from "@/lib/proveedor/cruce";
 
 const ESTADOS_INTERNOS = ["En curso (asignada)", "Cerrado", "En espera"] as const;
 
+const URGENCIAS = ["Muy alta", "Alta", "Mediana", "Media", "Baja", "Muy baja"] as const;
+
 const COLUMNAS_BUSCABLES = [
   { value: "todas", label: "Todas las columnas" },
   { value: "id_glpi", label: "ID GLPI" },
@@ -55,6 +57,7 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
   const hasta = searchParams.get("hasta");
   const desdeCierre = searchParams.get("desde_cierre");
   const hastaCierre = searchParams.get("hasta_cierre");
+  const urgencia = searchParams.get("urgencia") ?? "todas";
   const columna = searchParams.get("columna") ?? "todas";
   const qParam = searchParams.get("q") ?? "";
 
@@ -93,6 +96,7 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
   const activeFilterCount = [
     estadoInterno !== "todos",
     estadoProveedor !== "todos",
+    urgencia !== "todas",
     Boolean(desde),
     Boolean(hasta),
     Boolean(desdeCierre),
@@ -141,6 +145,18 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
             <SelectItem key={estado} value={estado}>
               {estado}
             </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={urgencia} onValueChange={(v) => setParam("urgencia", v === "todas" ? undefined : v)}>
+        <SelectTrigger className="w-auto min-w-[150px] flex-1 sm:max-w-[200px]">
+          <SelectValue placeholder="Urgencia" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todas">Todas las urgencias</SelectItem>
+          {URGENCIAS.map((u) => (
+            <SelectItem key={u} value={u}>{u}</SelectItem>
           ))}
         </SelectContent>
       </Select>
