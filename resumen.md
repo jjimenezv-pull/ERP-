@@ -109,19 +109,19 @@ Sesión larga, varias fases, todo desplegado y verificado en producción (`esate
 - **Bloqueo por intentos:** Supabase free no bloquea cuentas nativamente. Queda como ítem de hoja de ruta si se sube de plan.
 - **Seguimientos GLPI ("Avance hasta la fecha"):**
   - Nueva columna `seguimientos text` en la tabla `casos` de Supabase (migración requerida: `ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;`).
-  - Parser CSV (`parse-casos-csv.ts`): captura la columna `"Seguimientos - Seguimientos"` opcionalmente (si el export de GLPI la incluye; no falla si no está).
+  - Parser CSV (`parse-casos-csv.ts`): captura la columna `"Followups - Descripción"` (nombre real en el export de GLPI). Opcional: no falla si el archivo no la trae.
   - Parser XLSX legacy (`parse-casos.ts`): escribe `null` siempre (formato de 13 columnas fijas, sin seguimientos).
   - Diálogo de caso (`casos-table.tsx`): nueva sección "Avance hasta la fecha" con fondo ámbar, visible **solo** en casos no cerrados que tengan seguimientos. En casos cerrados o sin datos, no aparece.
 
-**Migración Supabase pendiente de aplicar:**
+**Migración Supabase aplicada (2026-09-28):**
 ```sql
 ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;
 ```
-Sin esta migración, el próximo import de GLPI fallará si el CSV trae la columna de seguimientos.
+Columna ya existe en producción. El próximo import de GLPI poblará los seguimientos para todos los casos existentes (el campo venía en todos los exports anteriores bajo `"Followups - Descripción"`).
 
 ## Pendiente para la próxima sesión
 
-1. **Migración Supabase** (si no se aplicó ya): `ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;`
+1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).
 2. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.
 3. Bloqueo de cuenta por intentos fallidos (Supabase free no lo soporta; requiere lógica custom o plan Pro).
 4. Resto de la hoja de ruta original sin tocar: cabeceras de seguridad HTTP, paginación, tests/CI, upgrade de Next.js, reemplazar `xlsx`, auditoría de ediciones (editado_por/editado_en).
