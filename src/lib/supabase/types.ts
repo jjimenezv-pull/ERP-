@@ -37,6 +37,7 @@ export type Database = {
           urgencia: string | null;
           descripcion: string | null;
           solucion: string | null;
+          seguimientos: string | null;
           caso_escalado_proveedor: string | null;
           estado_proveedor: EstadoProveedor | null;
           semana_carga: string | null;

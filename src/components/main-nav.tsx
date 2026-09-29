@@ -46,7 +46,7 @@ export function MainNav({ profile }: { profile: CurrentProfile | null }) {
                     href={link.href}
                     className={cn(
                       "rounded-md px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-white/10",
-                      active && "bg-white text-[#1a3d96] hover:bg-white"
+                      active && "bg-white/20 text-white border border-white/40 hover:bg-white/25"
                     )}
                   >
                     {link.label}

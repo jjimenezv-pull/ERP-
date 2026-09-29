@@ -26,6 +26,7 @@ export type ParsedCasoRow = {
   urgencia: string | null;
   descripcion: string | null;
   solucion: string | null;
+  seguimientos: string | null;
   semana_carga: string;
 };
 
@@ -135,6 +136,7 @@ export function parseCasosXlsx(buffer: ArrayBuffer): ParseResult {
       urgencia: cellToText(urgenciaRaw),
       descripcion: cellToText(descripcionRaw),
       solucion: cellToText(solucionRaw),
+      seguimientos: null,
       semana_carga: hoy,
     });
   });

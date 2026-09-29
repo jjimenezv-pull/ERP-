@@ -15,18 +15,6 @@ import {
 } from "@/components/ui/card";
 import { sendMagicLink, signInWithPassword } from "@/app/login/actions";
 
-function mapLoginError(msg: string): string {
-  if (msg.includes("Invalid login credentials"))
-    return "Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.";
-  if (msg.includes("Email not confirmed"))
-    return "Este correo no ha sido verificado. Usa el enlace de acceso.";
-  if (msg.includes("Too many requests"))
-    return "Demasiados intentos fallidos. Espera unos minutos antes de volver a intentarlo.";
-  if (msg.includes("User not found") || msg.includes("user_not_found"))
-    return "Este correo no tiene permiso para acceder al sistema.";
-  return "No se pudo iniciar sesión. Intenta de nuevo.";
-}
-
 function PasswordTab() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,11 +27,8 @@ function PasswordTab() {
     if (!email.trim() || !password) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await signInWithPassword(email.trim(), password);
-      } catch (err) {
-        setError(mapLoginError(err instanceof Error ? err.message : "Error"));
-      }
+      const result = await signInWithPassword(email.trim(), password);
+      if (result?.error) setError(result.error);
     });
   }
 
@@ -108,11 +93,11 @@ function MagicLinkTab() {
     if (!email.trim()) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await sendMagicLink(email.trim());
+      const result = await sendMagicLink(email.trim());
+      if (result?.error) {
+        setError(result.error);
+      } else {
         setSent(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "No se pudo enviar el enlace. Intenta de nuevo.");
       }
     });
   }

@@ -54,14 +54,77 @@ Sesión larga, varias fases, todo desplegado y verificado en producción (`esate
 
 **`graphify-out/` quedó desactualizado** — se generó al principio de esta sesión, antes de todo este trabajo. Correr `/graphify` de nuevo (o `--update`) antes de confiar en él para navegar el código.
 
+## Actualización 2026-09-18 a 2026-09-27 — seguridad, cruce proveedor y polish UI
+
+**2026-09-18 — `7a5d383` Seguridad y limpieza de repo:**
+- **TOCTOU cerrado:** `cambiarRolUsuario` y `bloquearUsuario` tenían un patrón leer → verificar → escribir susceptible a race condition. Reemplazado por RPCs de Postgres que hacen el lock y re-verifican el invariante del último admin dentro de la misma transacción (hallazgo F1 de Claude Security, no tenía parche aplicado).
+- **`graphify-out/` desindexado de git** — era regenerable y añadía miles de líneas de diff en cada actualización. Se agregó al `.gitignore`.
+- **`.gitignore` endurecido** — patrón ampliado para capturar variaciones de nombre como `credencials.env.local` (mismo error que filtró la anon key antes).
+
+**2026-09-20 — `d1a9014` Cruce estado proveedor (pendiente #1 del resumen anterior):**
+- `casos.estado_proveedor` (enum manual editable) reemplazado por estado derivado cruzando `casos.caso_escalado_proveedor` con `casos_proveedor.id_tarea` sin FK.
+- Tres estados posibles: **No escalado** (campo vacío), **Sin match** (hay id pero no está en `casos_proveedor`), o el **estado real del proveedor** (texto del CSV de Freematica).
+- Nueva lógica en `src/lib/proveedor/cruce.ts` y `src/lib/proveedor/cargar-estados.ts`. Tabla, filtros, `/proveedor`, dashboard y export PPTX usan el estado derivado. "Pendiente" = escalado cuyo estado no es `Cerrada` ni `Caducada`.
+- La columna de estado en `CasosTable` es ahora solo lectura (antes era un Select editable manual).
+
+**2026-09-26 — `2f786cb` Polish UI (ronda 3):**
+- Badges de Urgencia y estado de tareas migrados a colores sólidos saturados (texto blanco) para igualar el peso visual de los badges de Estado interno.
+- Toggle **"Ajustar columnas"** / **"Vista normal"** en tablas de casos y tareas: reduce padding/fuente para que las 13 columnas quepan sin scroll horizontal.
+- Secciones de descripción y solución en el diálogo de caso: colapsan a 3 líneas por defecto con toggle "Ver más / Ver menos" (solo cuando >200 chars).
+- Orden por defecto de la tabla: casos abiertos (En espera / En curso) primero, luego cerrados; ambos grupos por `fecha_apertura` desc.
+- Fix de timezone en el selector de rango semanal (`parseISO` en vez de `new Date`).
+- Diálogo reconstruido con 4 secciones etiquetadas y divisores horizontales.
+- Columna Proyecto: limpia el prefijo `?? NNNNN Client - Provider` y muestra solo el tipo de servicio.
+- `% Realizado` reemplazado por barra de progreso inline.
+- Clave de urgencia `'Mediana'` añadida (el valor en BD difiere del esperado `'Media'`).
+
+**2026-09-27 — `b991b0a` Polish UI ronda 4:**
+- Header: logo.png reemplaza el ícono LifeBuoy; links de nav ocultos en la página de login; texto inactivo en blanco completo, activo en pill blanco sólido con texto azul.
+- Login: errores ahora son mensajes inline centrados (no toasts); copy en español amigable para credenciales inválidas.
+- Dashboard: botón "Actualizar" es solo ícono.
+- Toggle de modo compacto de la tabla de casos movido al ribbon de filtros como ícono; persiste en URL param.
+- Tabla de tareas del proveedor: barra de filtros nueva (búsqueda + estado), encabezados de columna ordenables, toggle compacto en la barra.
+
+**Estado de `graphify-out`:** desindexado de git desde `7a5d383`. Para regenerar: `/graphify --update`. No es urgente.
+
+## Reglas del proyecto (innegociables)
+
+1. **Registro en `resumen.md`:** Cada cambio que se haga queda registrado aquí al ritmo en que ocurre.
+2. **Deploy solo cuando se indique:** Nunca hacer deploy por iniciativa propia. Antes de cerrar un bloque de cambios, preguntar al usuario si quiere (a) captura de pantalla del estado actual, o (b) levantar un ambiente local para revisar. Deploy a producción solo cuando el usuario lo diga explícitamente.
+3. **Subagentes para implementación:** Las tareas de código las ejecutan subagentes. El rol principal es coordinación y QA con ojo crítico sobre los resultados.
+
+## Actualización 2026-09-28 — ajustes UI, login y seguimientos GLPI
+
+**Reglas de flujo de trabajo establecidas (innegociables desde esta sesión):**
+- Registrar cada cambio en `resumen.md` al momento de hacerse.
+- Deploy solo cuando el usuario lo indique explícitamente.
+- Implementación via subagentes; rol principal = coordinación + QA.
+
+**Cambios aplicados:**
+
+- **Header:** Link activo ahora translucido (`bg-white/20 border border-white/40`) en vez de pill blanco sólido. Texto siempre blanco.
+- **Casos Proveedor:** Título de sección cambiado de "Tareas del proveedor (import)" → "Tareas del proveedor".
+- **Login — errores de contraseña incorrecta:** La causa real era que Next.js no transmite mensajes de server actions que lanzan (`throw`) en producción. Se refactorizó para devolver `{error?: string}` en lugar de lanzar. Ahora el error llega correctamente: "Usuario o contraseña incorrectos. Intente nuevamente."
+- **Login — magic link no autorizado:** Mismo patrón. Antes el error causaba un crash de Server Components. Ahora muestra: "Comuníquese con el administrador para solicitar acceso."
+- **Bloqueo por intentos:** Supabase free no bloquea cuentas nativamente. Queda como ítem de hoja de ruta si se sube de plan.
+- **Seguimientos GLPI ("Avance hasta la fecha"):**
+  - Nueva columna `seguimientos text` en la tabla `casos` de Supabase (migración requerida: `ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;`).
+  - Parser CSV (`parse-casos-csv.ts`): captura la columna `"Seguimientos - Seguimientos"` opcionalmente (si el export de GLPI la incluye; no falla si no está).
+  - Parser XLSX legacy (`parse-casos.ts`): escribe `null` siempre (formato de 13 columnas fijas, sin seguimientos).
+  - Diálogo de caso (`casos-table.tsx`): nueva sección "Avance hasta la fecha" con fondo ámbar, visible **solo** en casos no cerrados que tengan seguimientos. En casos cerrados o sin datos, no aparece.
+
+**Migración Supabase pendiente de aplicar:**
+```sql
+ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;
+```
+Sin esta migración, el próximo import de GLPI fallará si el CSV trae la columna de seguimientos.
+
 ## Pendiente para la próxima sesión
 
-1. **Reemplazar `casos.estado_proveedor`** (enum manual) por el estado real cruzado desde `casos_proveedor.estado` — en `CasosTable` (columna editable → solo lectura), `CasosFilters` (el Select de estado proveedor), y el dashboard (`EstadoProveedorChart`, `escaladosPendientes`, export PPTX). Es el paso 2 ya acordado, deliberadamente no hecho todavía.
-2. **Volver a escribir `caso_escalado_proveedor`** en los casos GLPI que correspondan (al menos los 4 que se perdieron en el reinicio: 92579, 92773, 93239, 93437) para que el cruce con `casos_proveedor` tenga algo que emparejar.
-3. Purgar del historial de git el commit con la anon key filtrada + rotarla (sigue sin hacerse, viene de hace varias sesiones).
-4. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.
-5. Correr `/graphify --update` al empezar la próxima sesión.
-6. Resto de la hoja de ruta original sin tocar: cabeceras de seguridad, paginación, tests/CI, upgrade de Next.js, reemplazar `xlsx`, auditoría de ediciones (editado_por/editado_en).
+1. **Migración Supabase** (si no se aplicó ya): `ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;`
+2. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.
+3. Bloqueo de cuenta por intentos fallidos (Supabase free no lo soporta; requiere lógica custom o plan Pro).
+4. Resto de la hoja de ruta original sin tocar: cabeceras de seguridad HTTP, paginación, tests/CI, upgrade de Next.js, reemplazar `xlsx`, auditoría de ediciones (editado_por/editado_en).
 
 ## Hallazgos de seguridad (ya resueltos)
 

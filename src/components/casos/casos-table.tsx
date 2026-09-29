@@ -413,6 +413,21 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
                   <p className="text-muted-foreground">— Sin solución registrada</p>
                 )}
               </div>
+
+              {/* Sección: Avance hasta la fecha — solo en casos no cerrados con seguimientos */}
+              {casoDetalle.estado_interno !== "Cerrado" && casoDetalle.seguimientos && (
+                <>
+                  <div className="border-t" />
+                  <div>
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Avance hasta la fecha
+                    </p>
+                    <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 whitespace-pre-wrap leading-relaxed text-sm dark:bg-amber-950/20 dark:border-amber-800">
+                      {casoDetalle.seguimientos}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </DialogContent>

@@ -94,6 +94,8 @@ export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
   const iUrgencia = colIndex("Urgencia");
   const iDescripcion = colIndex("Descripción");
   const iSolucion = colIndex("Soluciones - Soluciones");
+  // Columna opcional: no todos los exports de GLPI la incluyen.
+  const iSeguimientos = colIndex("Seguimientos - Seguimientos");
 
   const dataRows = rows.slice(1);
   const hoy = format(new Date(), "yyyy-MM-dd");
@@ -135,6 +137,7 @@ export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
       urgencia: cellToText(row[iUrgencia]),
       descripcion: cellToText(row[iDescripcion]),
       solucion: cellToText(row[iSolucion]),
+      seguimientos: iSeguimientos !== -1 ? cellToText(row[iSeguimientos]) : null,
       semana_carga: hoy,
     });
   });
