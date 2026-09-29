@@ -95,7 +95,7 @@ export function parseCasosCsv(buffer: ArrayBuffer): ParseResult {
   const iDescripcion = colIndex("Descripción");
   const iSolucion = colIndex("Soluciones - Soluciones");
   // Columna opcional: no todos los exports de GLPI la incluyen.
-  const iSeguimientos = colIndex("Seguimientos - Seguimientos");
+  const iSeguimientos = colIndex("Followups - Descripción");
 
   const dataRows = rows.slice(1);
   const hoy = format(new Date(), "yyyy-MM-dd");
