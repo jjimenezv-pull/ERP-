@@ -91,6 +91,14 @@ function cleanText(value: string | null) {
   return value.replace(/\s*<br\s*\/?>\s*/gi, ", ");
 }
 
+function filterBotTecnicos(raw: string | null): string {
+  if (!raw) return "—";
+  const parts = raw.replace(/\s*<br\s*\/?>\s*/gi, ", ")
+    .split(",").map((t) => t.trim()).filter(Boolean);
+  const humans = parts.filter((t) => !/chatbot/i.test(t));
+  return (humans.length > 0 ? humans : parts).join(", ");
+}
+
 function SortableHead({
   column,
   orderBy,
@@ -274,9 +282,9 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
               </TableCell>
               <TableCell
                 className={cn("truncate", compact ? "max-w-[80px]" : "max-w-[180px]")}
-                title={caso.tecnico_asignado?.replace(/\s*<br\s*\/?>\s*/gi, ", ") ?? ""}
+                title={filterBotTecnicos(caso.tecnico_asignado) === "—" ? "" : filterBotTecnicos(caso.tecnico_asignado)}
               >
-                {cleanText(caso.tecnico_asignado)}
+                {filterBotTecnicos(caso.tecnico_asignado)}
               </TableCell>
               <TableCell className={cn("truncate", compact ? "max-w-[60px]" : "max-w-[160px]")} title={caso.ubicacion ?? ""}>
                 {caso.ubicacion ?? "—"}
@@ -346,7 +354,7 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Partes</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                   <div><span className="text-xs text-muted-foreground">Solicitante</span><p>{casoDetalle.solicitante ?? "—"}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Técnico</span><p>{cleanText(casoDetalle.tecnico_asignado)}</p></div>
+                  <div><span className="text-xs text-muted-foreground">Técnico</span><p>{filterBotTecnicos(casoDetalle.tecnico_asignado)}</p></div>
                   <div><span className="text-xs text-muted-foreground">Ubicación</span><p>{casoDetalle.ubicacion ?? "—"}</p></div>
                 </div>
               </div>

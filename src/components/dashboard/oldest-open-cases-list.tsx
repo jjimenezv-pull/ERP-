@@ -1,5 +1,15 @@
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const URGENCIA_CLASS: Record<string, string> = {
+  "Muy alta": "border-transparent bg-[var(--urgency-muy-alta)] text-[var(--urgency-muy-alta-fg)]",
+  "Alta":     "border-transparent bg-[var(--urgency-alta)] text-[var(--urgency-alta-fg)]",
+  "Media":    "border-transparent bg-[var(--urgency-media)] text-[var(--urgency-media-fg)]",
+  "Mediana":  "border-transparent bg-[var(--urgency-media)] text-[var(--urgency-media-fg)]",
+  "Baja":     "border-transparent bg-[var(--urgency-baja)] text-[var(--urgency-baja-fg)]",
+  "Muy baja": "border-transparent bg-[var(--urgency-muy-baja)] text-[var(--urgency-muy-baja-fg)]",
+};
 
 export function OldestOpenCasesList({
   data,
@@ -33,7 +43,7 @@ export function OldestOpenCasesList({
                   {c.solicitante ?? "—"}
                 </span>
                 {c.urgencia && (
-                  <Badge variant="outline" className="shrink-0">
+                  <Badge variant="outline" className={cn("shrink-0", URGENCIA_CLASS[c.urgencia] ?? "")}>
                     {c.urgencia}
                   </Badge>
                 )}

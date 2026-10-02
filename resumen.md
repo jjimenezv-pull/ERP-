@@ -137,6 +137,12 @@ Columna ya existe en producción. El próximo import de GLPI poblará los seguim
 - **Contador de intentos restantes:** aparece en ámbar a partir del 3er fallo. Cuando `remainingAttempts = 0` (último intento libre), muestra "Último intento. El siguiente bloquea el acceso por 5 minutos." Los bloqueos activos muestran solo el mensaje rojo, sin counter redundante.
 - **"¿Olvidaste tu contraseña?":** texto bajo el campo contraseña con link que cambia al tab "Enlace de acceso" (estado local, sin servidor). El tab es controlado por `LoginForm` vía `value`/`onValueChange`.
 
+## Actualización 2026-10-01 — 3 bugs UI
+
+- **Técnico en tabla:** `filterBotTecnicos()` reemplaza `cleanText()` para `tecnico_asignado`. Filtra entradas con "chatbot" (case-insensitive) cuando hay técnicos reales en la celda; solo las muestra si no hay ningún otro valor.
+- **Urgencia en "Casos abiertos más antiguos":** badges ahora usan `URGENCIA_CLASS` con las mismas CSS vars (`--urgency-*`) que el resto de la app.
+- **Calendario — días externos:** `showOutsideDays` cambiado de `true` a `false` en `calendar.tsx`. Los días del mes anterior/siguiente ya no aparecen ni se resaltan con el rango seleccionado.
+
 ## Pendiente para la próxima sesión
 
 1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).
