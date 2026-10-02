@@ -44,3 +44,16 @@ export async function importTareasProveedor(
 
   return { nuevos, actualizados };
 }
+
+export async function updateTareasTipo(ids: string[], tipo: string | null) {
+  await requireAdmin();
+
+  const supabase = createServerClient();
+  const { error } = await supabase.from("casos_proveedor").update({ tipo }).in("id", ids);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/proveedor");
+}

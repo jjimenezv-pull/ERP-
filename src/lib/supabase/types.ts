@@ -51,6 +51,17 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["casos"]["Row"]>;
         Relationships: [];
       };
+      login_attempts: {
+        Row: {
+          id: string;
+          email: string;
+          ip: string | null;
+          attempted_at: string;
+        };
+        Insert: { id?: string; email: string; ip?: string | null; attempted_at?: string };
+        Update: Partial<Database["public"]["Tables"]["login_attempts"]["Row"]>;
+        Relationships: [];
+      };
       casos_proveedor: {
         Row: {
           id: string;
@@ -66,6 +77,7 @@ export type Database = {
           porcentaje_realizado: number | null;
           actualizado_por: string | null;
           estado: string | null;
+          tipo: string | null;
           created_at: string;
           updated_at: string;
         };

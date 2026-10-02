@@ -58,6 +58,7 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
   const desdeCierre = searchParams.get("desde_cierre");
   const hastaCierre = searchParams.get("hasta_cierre");
   const urgencia = searchParams.get("urgencia") ?? "todas";
+  const tipo = searchParams.get("tipo") ?? "todos";
   const columna = searchParams.get("columna") ?? "todas";
   const qParam = searchParams.get("q") ?? "";
 
@@ -97,6 +98,7 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
     estadoInterno !== "todos",
     estadoProveedor !== "todos",
     urgencia !== "todas",
+    tipo !== "todos",
     Boolean(desde),
     Boolean(hasta),
     Boolean(desdeCierre),
@@ -158,6 +160,18 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
           {URGENCIAS.map((u) => (
             <SelectItem key={u} value={u}>{u}</SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Select value={tipo} onValueChange={(v) => setParam("tipo", v === "todos" ? undefined : v)}>
+        <SelectTrigger className="w-auto min-w-[150px] flex-1 sm:max-w-[200px]">
+          <SelectValue placeholder="Tipo" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos los tipos</SelectItem>
+          <SelectItem value="Requerimiento">Requerimiento</SelectItem>
+          <SelectItem value="Incidencia">Incidencia</SelectItem>
+          <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
         </SelectContent>
       </Select>
 

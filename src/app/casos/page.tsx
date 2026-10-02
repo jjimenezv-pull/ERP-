@@ -40,6 +40,7 @@ interface CasosPageProps {
     desde_cierre?: string;
     hasta_cierre?: string;
     urgencia?: string;
+    tipo?: string;
     columna?: string;
     q?: string;
     orderBy?: string;
@@ -87,6 +88,13 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   }
   if (searchParams.urgencia) {
     query = query.eq("urgencia", searchParams.urgencia);
+  }
+  if (searchParams.tipo) {
+    if (searchParams.tipo === "sin_clasificar") {
+      query = query.is("tipo", null);
+    } else {
+      query = query.eq("tipo", searchParams.tipo);
+    }
   }
 
   const q = searchParams.q?.trim();

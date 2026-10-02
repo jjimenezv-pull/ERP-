@@ -167,7 +167,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
             <ImportTareasDialog />
           </div>
           <ProveedorKpiCards tareas={tareasProveedor} />
-          <TareasProveedorTable tareas={tareasProveedor} casosGlpi={casos} />
+          <TareasProveedorTable tareas={tareasProveedor} casosGlpi={casos} canEdit={canEdit} />
         </section>
       )}
     </div>

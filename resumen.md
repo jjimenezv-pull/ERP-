@@ -143,6 +143,29 @@ Columna ya existe en producción. El próximo import de GLPI poblará los seguim
 - **Urgencia en "Casos abiertos más antiguos":** badges ahora usan `URGENCIA_CLASS` con las mismas CSS vars (`--urgency-*`) que el resto de la app.
 - **Calendario — días externos:** `showOutsideDays` cambiado de `true` a `false` en `calendar.tsx`. Los días del mes anterior/siguiente ya no aparecen ni se resaltan con el rango seleccionado.
 
+## Actualización 2026-10-01 — campo `tipo` (Requerimiento / Incidencia)
+
+Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
+
+**Base de datos:** migración `supabase/migrations/20261001_tipo_columns.sql` — añade `tipo text` a `casos` y `casos_proveedor`. **Debe ejecutarse en el SQL editor de Supabase antes de usar la funcionalidad.**
+
+**Cambios de código:**
+- `src/lib/supabase/types.ts`: `tipo: string | null` en `casos_proveedor.Row`; también añadido `login_attempts` (faltaba y causaba error de build).
+- `src/app/casos/actions.ts`: `updateCasosTipo(ids, tipo)` — admin-only, `.in("id", ids)`.
+- `src/app/proveedor/import-actions.ts`: `updateTareasTipo(ids, tipo)` — admin-only, `.in("id", ids)`.
+- `src/components/casos/casos-table.tsx`: columna checkbox (solo admins), columna "Tipo" con badge, select de tipo en diálogo de detalle, barra flotante de acción masiva.
+- `src/components/proveedor/tareas-proveedor-table.tsx`: mismo tratamiento (sin diálogo).
+- `src/components/casos/casos-filters.tsx`: filtro "Tipo" con opciones Todos / Requerimiento / Incidencia / Sin clasificar.
+- `src/app/casos/page.tsx`: `tipo?` en searchParams + filtro `.eq("tipo", v)` / `.is("tipo", null)` para "sin_clasificar".
+
+**Colores:** Requerimiento = azul `#1a3d96` (mismo azul de la app), Incidencia = naranja `#ea580c`.
+
+## Pendientes identificados en sesión 2026-10-01
+
+- **Migración SQL pendiente de aplicar:** `ALTER TABLE casos ADD COLUMN IF NOT EXISTS tipo text; ALTER TABLE casos_proveedor ADD COLUMN IF NOT EXISTS tipo text;` — ejecutar en Supabase SQL editor.
+- **Redesign PPTX:** el usuario no está conforme con el diseño actual del export. Revisarlo en una sesión dedicada. Al redesignar, incluir ahí la distribución Requerimiento/Incidencia (campo `tipo`).
+- **KPIs de tipo (Requerimiento/Incidencia):** implementar después de que los casos estén clasificados.
+
 ## Pendiente para la próxima sesión
 
 1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).

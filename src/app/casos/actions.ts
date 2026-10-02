@@ -20,3 +20,16 @@ export async function updateCasoProveedor(
   revalidatePath("/casos");
   revalidatePath("/proveedor");
 }
+
+export async function updateCasosTipo(ids: string[], tipo: string | null) {
+  await requireAdmin();
+
+  const supabase = createServerClient();
+  const { error } = await supabase.from("casos").update({ tipo }).in("id", ids);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/casos");
+}

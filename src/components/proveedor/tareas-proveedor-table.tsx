@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { format, parseISO } from "date-fns";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Maximize2, Minimize2, Search } from "lucide-react";
+import { toast } from "sonner";
+import { updateTareasTipo } from "@/app/proveedor/import-actions";
 
 import {
   Table,
@@ -24,6 +26,11 @@ import {
 import { cn } from "@/lib/utils";
 import type { CasoProveedor } from "@/lib/supabase/types";
 import type { CasoConEstado } from "@/lib/proveedor/cruce";
+
+const TIPO_CLASS: Record<string, string> = {
+  "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
+  "Incidencia":    "border-transparent bg-[#ea580c] text-white",
+};
 
 const ESTADO_TAREA_CLASS: Record<string, string> = {
   "En Desarrollo":     "border-transparent bg-[#1d4ed8] text-white",
@@ -103,15 +110,20 @@ function SortableHead({
 export function TareasProveedorTable({
   tareas,
   casosGlpi = [],
+  canEdit = false,
 }: {
   tareas: CasoProveedor[];
   casosGlpi?: CasoConEstado[];
+  canEdit?: boolean;
 }) {
   const [compact, setCompact] = useState(false);
   const [filterEstado, setFilterEstado] = useState("todos");
   const [filterQ, setFilterQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [rows, setRows] = useState(tareas);
+  const [selectedIds, setSelectedIds] = useState(new Set<string>());
+  const [isPending, startTransition] = useTransition();
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -122,7 +134,21 @@ export function TareasProveedorTable({
     }
   }
 
-  const filtered = tareas
+  function handleBulkTipo(tipo: string | null) {
+    const ids = Array.from(selectedIds);
+    setRows((prev) => prev.map((r) => selectedIds.has(r.id) ? { ...r, tipo } : r));
+    setSelectedIds(new Set());
+    startTransition(async () => {
+      try {
+        await updateTareasTipo(ids, tipo);
+        toast.success(tipo ? `Marcados como ${tipo}` : "Tipo eliminado");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al actualizar");
+      }
+    });
+  }
+
+  const filtered = rows
     .filter((t) => filterEstado === "todos" || t.estado === filterEstado)
     .filter((t) => {
       if (!filterQ) return true;
@@ -145,7 +171,7 @@ export function TareasProveedorTable({
       })
     : filtered;
 
-  if (tareas.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
         No hay tareas importadas todavía.
@@ -198,6 +224,17 @@ export function TareasProveedorTable({
     <Table containerClassName="max-h-[50vh] rounded-md border">
       <TableHeader className="sticky top-0 z-10 bg-[#1a3d96]">
         <TableRow>
+          {canEdit && (
+            <TableHead className="w-8 px-2">
+              <input
+                type="checkbox"
+                className="rounded border-white/40 bg-transparent"
+                checked={rows.length > 0 && selectedIds.size === rows.length}
+                onChange={(e) => setSelectedIds(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
+                aria-label="Seleccionar todos"
+              />
+            </TableHead>
+          )}
           <TableHead className="text-white">Caso GLPI</TableHead>
           <SortableHead sortKey="id_tarea" current={sortKey} dir={sortDir} onSort={handleSort}>ID tarea</SortableHead>
           <SortableHead sortKey="asunto" current={sortKey} dir={sortDir} onSort={handleSort}>Asunto</SortableHead>
@@ -207,6 +244,7 @@ export function TareasProveedorTable({
           <SortableHead sortKey="fecha_inicio" current={sortKey} dir={sortDir} onSort={handleSort}>F. inicio</SortableHead>
           <SortableHead sortKey="fecha_fin" current={sortKey} dir={sortDir} onSort={handleSort}>F. fin</SortableHead>
           <SortableHead sortKey="porcentaje_realizado" current={sortKey} dir={sortDir} onSort={handleSort}>% Realizado</SortableHead>
+          <TableHead className="text-white">Tipo</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -215,7 +253,24 @@ export function TareasProveedorTable({
             (c) => c.caso_escalado_proveedor?.trim() === String(tarea.id_tarea)
           );
           return (
-            <TableRow key={tarea.id}>
+            <TableRow key={tarea.id} className={cn(selectedIds.has(tarea.id) && "bg-muted/50")}>
+              {canEdit && (
+                <TableCell className="px-2">
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    checked={selectedIds.has(tarea.id)}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        e.target.checked ? next.add(tarea.id) : next.delete(tarea.id);
+                        return next;
+                      });
+                    }}
+                    aria-label="Seleccionar"
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 {casoGlpi ? (
                   <span className="font-mono text-xs" title={casoGlpi.titulo ?? ""}>
@@ -257,12 +312,63 @@ export function TareasProveedorTable({
                   </span>
                 </div>
               </TableCell>
+              <TableCell>
+                {tarea.tipo ? (
+                  <Badge variant="outline" className={cn(TIPO_CLASS[tarea.tipo] ?? "border-dashed text-muted-foreground")}>
+                    {tarea.tipo}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground text-xs">—</span>
+                )}
+              </TableCell>
             </TableRow>
           );
         })}
       </TableBody>
     </Table>
     </div>
+
+      {canEdit && selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl border bg-background px-5 py-3 shadow-lg">
+          <span className="text-sm font-medium">
+            {selectedIds.size} tarea{selectedIds.size !== 1 ? "s" : ""} seleccionada{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-sm text-muted-foreground">Marcar como</span>
+          <button
+            type="button"
+            onClick={() => handleBulkTipo("Requerimiento")}
+            disabled={isPending}
+            className="rounded-md bg-[#1a3d96] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1a3d96]/90 disabled:opacity-60"
+          >
+            Requerimiento
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkTipo("Incidencia")}
+            disabled={isPending}
+            className="rounded-md bg-[#ea580c] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#ea580c]/90 disabled:opacity-60"
+          >
+            Incidencia
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkTipo(null)}
+            disabled={isPending}
+            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
+          >
+            Sin clasificar
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-1 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Cancelar selección"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </>
   );
 }

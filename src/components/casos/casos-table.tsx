@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Eye } from "lucide-react";
+import { updateCasosTipo } from "@/app/casos/actions";
 import { toast } from "sonner";
 
 import {
@@ -22,9 +23,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CasoConEstado } from "@/lib/proveedor/cruce";
 import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
+
+const TIPO_CLASS: Record<string, string> = {
+  "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
+  "Incidencia":    "border-transparent bg-[#ea580c] text-white",
+};
 
 const ESTADO_INTERNO_CLASS: Record<string, string> = {
   "En espera": "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
@@ -145,12 +158,14 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
   const [rows, setRows] = useState(casos);
   const [isPending, startTransition] = useTransition();
   const [casoDetalle, setCasoDetalle] = useState<CasoConEstado | null>(null);
+  const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const compact = !!searchParams.get("compact");
   const [descExpanded, setDescExpanded] = useState(false);
   const [solExpanded, setSolExpanded] = useState(false);
 
   useEffect(() => {
     setRows(casos);
+    setSelectedIds(new Set());
   }, [casos]);
 
   useEffect(() => {
@@ -186,6 +201,20 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
     });
   }
 
+  function handleBulkTipo(tipo: string | null) {
+    const ids = Array.from(selectedIds);
+    setRows((prev) => prev.map((r) => selectedIds.has(r.id) ? { ...r, tipo } : r));
+    setSelectedIds(new Set());
+    startTransition(async () => {
+      try {
+        await updateCasosTipo(ids, tipo);
+        toast.success(tipo ? `Marcados como ${tipo}` : "Tipo eliminado");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error al actualizar");
+      }
+    });
+  }
+
   function handleEscaladoChange(id: string, value: string) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, caso_escalado_proveedor: value } : r)));
   }
@@ -208,6 +237,17 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
     <Table containerClassName="max-h-[70vh] rounded-md border">
       <TableHeader className="sticky top-0 z-10 bg-[#1a3d96]">
           <TableRow>
+            {canEdit && (
+              <TableHead className="w-8 px-2">
+                <input
+                  type="checkbox"
+                  className="rounded border-white/40 bg-transparent"
+                  checked={rows.length > 0 && selectedIds.size === rows.length}
+                  onChange={(e) => setSelectedIds(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())}
+                  aria-label="Seleccionar todos"
+                />
+              </TableHead>
+            )}
             <TableHead className="w-8"></TableHead>
             <SortableHead column="id_glpi" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               ID GLPI
@@ -237,6 +277,7 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
             <SortableHead column="urgencia" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               Urgencia
             </SortableHead>
+            <TableHead className="text-white">Tipo</TableHead>
             <TableHead className={cn(compact ? "min-w-[100px]" : "min-w-[180px]", "text-white")}>Caso escalado proveedor</TableHead>
             <SortableHead
               column="estado_proveedor"
@@ -251,7 +292,24 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
         </TableHeader>
         <TableBody>
           {rows.map((caso) => (
-            <TableRow key={caso.id}>
+            <TableRow key={caso.id} data-selected={selectedIds.has(caso.id) || undefined} className={cn(selectedIds.has(caso.id) && "bg-muted/50")}>
+              {canEdit && (
+                <TableCell className="px-2">
+                  <input
+                    type="checkbox"
+                    className="rounded"
+                    checked={selectedIds.has(caso.id)}
+                    onChange={(e) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        e.target.checked ? next.add(caso.id) : next.delete(caso.id);
+                        return next;
+                      });
+                    }}
+                    aria-label="Seleccionar"
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <button
                   type="button"
@@ -299,6 +357,15 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
                 ) : "—"}
               </TableCell>
               <TableCell>
+                {caso.tipo ? (
+                  <Badge variant="outline" className={cn(TIPO_CLASS[caso.tipo] ?? "border-dashed text-muted-foreground")}>
+                    {caso.tipo}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground text-xs">—</span>
+                )}
+              </TableCell>
+              <TableCell>
                 {canEdit ? (
                   <Input
                     defaultValue={caso.caso_escalado_proveedor ?? ""}
@@ -344,6 +411,36 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
                   <div><span className="text-xs text-muted-foreground">Estado</span><p>{casoDetalle.estado_interno}</p></div>
                   <div><span className="text-xs text-muted-foreground">Categoría</span><p>{casoDetalle.categoria ?? "—"}</p></div>
                   <div><span className="text-xs text-muted-foreground">Urgencia</span><p>{casoDetalle.urgencia ?? "—"}</p></div>
+                  {canEdit && (
+                    <div className="col-span-2">
+                      <span className="text-xs text-muted-foreground">Tipo</span>
+                      <Select
+                        value={casoDetalle.tipo ?? "sin_clasificar"}
+                        onValueChange={(v) => {
+                          const tipo = v === "sin_clasificar" ? null : v;
+                          setCasoDetalle((prev) => prev ? { ...prev, tipo } : prev);
+                          setRows((prev) => prev.map((r) => r.id === casoDetalle.id ? { ...r, tipo } : r));
+                          startTransition(async () => {
+                            try {
+                              await updateCasosTipo([casoDetalle.id], tipo);
+                              toast.success("Tipo actualizado");
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : "Error");
+                            }
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="mt-1 h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
+                          <SelectItem value="Requerimiento">Requerimiento</SelectItem>
+                          <SelectItem value="Incidencia">Incidencia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -440,6 +537,48 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
           )}
         </DialogContent>
       </Dialog>
+
+      {canEdit && selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-xl border bg-background px-5 py-3 shadow-lg">
+          <span className="text-sm font-medium">
+            {selectedIds.size} caso{selectedIds.size !== 1 ? "s" : ""} seleccionado{selectedIds.size !== 1 ? "s" : ""}
+          </span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-sm text-muted-foreground">Marcar como</span>
+          <button
+            type="button"
+            onClick={() => handleBulkTipo("Requerimiento")}
+            disabled={isPending}
+            className="rounded-md bg-[#1a3d96] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1a3d96]/90 disabled:opacity-60"
+          >
+            Requerimiento
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkTipo("Incidencia")}
+            disabled={isPending}
+            className="rounded-md bg-[#ea580c] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#ea580c]/90 disabled:opacity-60"
+          >
+            Incidencia
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBulkTipo(null)}
+            disabled={isPending}
+            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
+          >
+            Sin clasificar
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-1 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Cancelar selección"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </>
   );
 }

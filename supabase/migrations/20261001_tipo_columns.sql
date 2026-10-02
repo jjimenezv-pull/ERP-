@@ -1,0 +1,2 @@
+ALTER TABLE casos ADD COLUMN IF NOT EXISTS tipo text;
+ALTER TABLE casos_proveedor ADD COLUMN IF NOT EXISTS tipo text;
