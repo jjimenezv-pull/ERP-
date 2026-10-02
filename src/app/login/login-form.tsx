@@ -15,11 +15,12 @@ import {
 } from "@/components/ui/card";
 import { sendMagicLink, signInWithPassword } from "@/app/login/actions";
 
-function PasswordTab() {
+function PasswordTab({ onSwitchToMagicLink }: { onSwitchToMagicLink: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
@@ -28,7 +29,10 @@ function PasswordTab() {
     setError(null);
     startTransition(async () => {
       const result = await signInWithPassword(email.trim(), password);
-      if (result?.error) setError(result.error);
+      if (result?.error) {
+        setError(result.error);
+        if (result.remainingAttempts !== undefined) setRemainingAttempts(result.remainingAttempts);
+      }
     });
   }
 
@@ -43,7 +47,7 @@ function PasswordTab() {
           autoComplete="email"
           placeholder="nombre@empresa.com"
           value={email}
-          onChange={(e) => { setEmail(e.target.value); setError(null); }}
+          onChange={(e) => { setEmail(e.target.value); setError(null); setRemainingAttempts(null); }}
           disabled={isPending}
         />
       </div>
@@ -56,7 +60,7 @@ function PasswordTab() {
             required
             autoComplete="current-password"
             value={password}
-            onChange={(e) => { setPassword(e.target.value); setError(null); }}
+            onChange={(e) => { setPassword(e.target.value); setError(null); setRemainingAttempts(null); }}
             disabled={isPending}
             className="pr-10"
           />
@@ -69,10 +73,30 @@ function PasswordTab() {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          ¿Olvidaste tu contraseña?{" "}
+          <button
+            type="button"
+            onClick={onSwitchToMagicLink}
+            className="underline hover:text-foreground"
+          >
+            Usa el enlace de acceso
+          </button>{" "}
+          para entrar sin contraseña, o contacta al administrador para restablecerla.
+        </p>
       </div>
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? "Ingresando..." : "Ingresar"}
       </Button>
+      {remainingAttempts !== null && remainingAttempts <= 3 && (
+        <p className="text-center text-sm text-amber-600 dark:text-amber-400">
+          {remainingAttempts === 0
+            ? "Último intento. El siguiente bloquea el acceso por 5 minutos."
+            : remainingAttempts === 1
+            ? "1 intento restante."
+            : `${remainingAttempts} intentos restantes.`}
+        </p>
+      )}
       {error && (
         <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
           {error}
@@ -143,6 +167,8 @@ function MagicLinkTab() {
 }
 
 export function LoginForm() {
+  const [activeTab, setActiveTab] = useState<"password" | "magic-link">("password");
+
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
@@ -150,13 +176,13 @@ export function LoginForm() {
         <CardDescription>Entra con tu contraseña o pide un enlace de acceso.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="password">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "password" | "magic-link")}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="password">Contraseña</TabsTrigger>
             <TabsTrigger value="magic-link">Enlace de acceso</TabsTrigger>
           </TabsList>
           <TabsContent value="password">
-            <PasswordTab />
+            <PasswordTab onSwitchToMagicLink={() => setActiveTab("magic-link")} />
           </TabsContent>
           <TabsContent value="magic-link">
             <MagicLinkTab />

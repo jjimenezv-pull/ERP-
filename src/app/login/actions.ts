@@ -37,7 +37,7 @@ export async function sendMagicLink(email: string): Promise<{ error?: string }> 
 
   const { blocked } = await checkRateLimit(email, ip ?? "");
   if (blocked) {
-    return { error: "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentar." };
+    return { error: "Demasiados intentos fallidos. Espera 5 minutos antes de volver a intentar." };
   }
 
   const { error } = await supabase.auth.signInWithOtp({
@@ -54,12 +54,12 @@ export async function sendMagicLink(email: string): Promise<{ error?: string }> 
 export async function signInWithPassword(
   email: string,
   password: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; remainingAttempts?: number }> {
   const ip = getClientIp();
 
-  const { blocked } = await checkRateLimit(email, ip ?? "");
+  const { blocked, remaining } = await checkRateLimit(email, ip ?? "");
   if (blocked) {
-    return { error: "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentar." };
+    return { error: "Demasiados intentos fallidos. Espera 5 minutos antes de volver a intentar." };
   }
 
   const supabase = createSessionClient();
@@ -67,7 +67,7 @@ export async function signInWithPassword(
 
   if (error) {
     await recordFailedAttempt(email, ip);
-    return { error: mapPasswordError(error.message) };
+    return { error: mapPasswordError(error.message), remainingAttempts: remaining - 1 };
   }
 
   await clearAttempts(email);

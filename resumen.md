@@ -131,6 +131,12 @@ Columna ya existe en producción. El próximo import de GLPI poblará los seguim
   - IP extraída de `x-nf-client-connection-ip` (Netlify) con fallback a `x-forwarded-for`.
 - Migración: `supabase/migrations/20261001_login_attempts.sql` — **pendiente aplicar en Supabase dashboard**.
 
+## Actualización 2026-10-01 (continuación) — UX de login
+
+- **Ventana de bloqueo:** 5 minutos (antes 15).
+- **Contador de intentos restantes:** aparece en ámbar a partir del 3er fallo. Cuando `remainingAttempts = 0` (último intento libre), muestra "Último intento. El siguiente bloquea el acceso por 5 minutos." Los bloqueos activos muestran solo el mensaje rojo, sin counter redundante.
+- **"¿Olvidaste tu contraseña?":** texto bajo el campo contraseña con link que cambia al tab "Enlace de acceso" (estado local, sin servidor). El tab es controlado por `LoginForm` vía `value`/`onValueChange`.
+
 ## Pendiente para la próxima sesión
 
 1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).
