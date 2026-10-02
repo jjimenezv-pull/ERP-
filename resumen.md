@@ -176,6 +176,16 @@ Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
 - **Redesign PPTX:** el usuario no está conforme con el diseño actual del export. Revisarlo en una sesión dedicada. Al redesignar, incluir ahí la distribución Requerimiento/Incidencia (campo `tipo`).
 - **KPIs de tipo (Requerimiento/Incidencia):** implementar después de que los casos estén clasificados.
 
+## Deploy 2026-10-01
+
+9 commits pusheados a `origin/main` y desplegados a producción (`esatellite.netlify.app`).
+
+**Resumen de todos los cambios de esta sesión:**
+- Rate limiting login (tabla `login_attempts`, 5 min, 5 intentos/email)
+- Login UX: contador de intentos restantes, link "¿Olvidaste tu contraseña?" → tab magic link
+- 3 bugs: técnico bots filtrados, urgencia coloreada en dashboard, calendario sin días externos
+- Campo `tipo` (Requerimiento/Incidencia) con selección masiva y filtro en ambas tablas
+
 ## Pendiente para la próxima sesión
 
 1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).
