@@ -160,6 +160,16 @@ Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
 
 **Colores:** Requerimiento = azul `#1a3d96` (mismo azul de la app), Incidencia = naranja `#ea580c`.
 
+## Actualización 2026-10-01 — Campo Tipo (Requerimiento / Incidencia)
+
+- **Columna `tipo`** en `casos` y `casos_proveedor` (texto libre, valores `'Requerimiento'`, `'Incidencia'`, null).
+- **Badges:** Requerimiento = azul `#1a3d96`, Incidencia = naranja `#ea580c`, sin clasificar = "—".
+- **Selección masiva (solo admin):** checkbox por fila + select-all en header. Barra flotante al pie con botones Requerimiento / Incidencia / Sin clasificar. Actualización optimista inmediata + toast de confirmación.
+- **Select individual:** en el diálogo de detalle de cada caso (Gestión de Casos).
+- **Filtro Tipo** en el ribbon de Gestión de Casos (incluye "Sin clasificar" para encontrar los no clasificados).
+- **Tareas del proveedor:** misma funcionalidad (checkbox + barra flotante, columna tipo), sin diálogo de detalle.
+- **Migración aplicada en Supabase:** `ALTER TABLE casos ADD COLUMN IF NOT EXISTS tipo text; ALTER TABLE casos_proveedor ADD COLUMN IF NOT EXISTS tipo text;`
+
 ## Pendientes identificados en sesión 2026-10-01
 
 - **Migración SQL pendiente de aplicar:** `ALTER TABLE casos ADD COLUMN IF NOT EXISTS tipo text; ALTER TABLE casos_proveedor ADD COLUMN IF NOT EXISTS tipo text;` — ejecutar en Supabase SQL editor.
