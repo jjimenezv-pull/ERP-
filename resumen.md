@@ -119,6 +119,18 @@ ALTER TABLE casos ADD COLUMN IF NOT EXISTS seguimientos text;
 ```
 Columna ya existe en producción. El próximo import de GLPI poblará los seguimientos para todos los casos existentes (el campo venía en todos los exports anteriores bajo `"Followups - Descripción"`).
 
+## Actualización 2026-10-01 — Rate limiting de login
+
+**Protección contra fuerza bruta sin costo adicional (Opción A: tabla Supabase).**
+
+- Nueva tabla `login_attempts` (email, ip, attempted_at) con índices en email+tiempo e IP+tiempo.
+- `src/lib/auth/rate-limit.ts`: tres funciones (`checkRateLimit`, `recordFailedAttempt`, `clearAttempts`). Umbral: 5 intentos fallidos por email en 15 min, o 20 por IP en 15 min. Fail-open: si la BD falla, el login sigue funcionando.
+- `src/app/login/actions.ts` actualizado:
+  - `signInWithPassword`: chequea rate limit antes de llamar a Supabase Auth, registra fallo si auth falla, limpia intentos en login exitoso.
+  - `sendMagicLink`: chequea rate limit (pero no registra fallos — evita info-leak de si el email existe).
+  - IP extraída de `x-nf-client-connection-ip` (Netlify) con fallback a `x-forwarded-for`.
+- Migración: `supabase/migrations/20261001_login_attempts.sql` — **pendiente aplicar en Supabase dashboard**.
+
 ## Pendiente para la próxima sesión
 
 1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).

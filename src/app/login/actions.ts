@@ -3,6 +3,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSessionClient } from "@/lib/supabase/session-server";
+import {
+  checkRateLimit,
+  recordFailedAttempt,
+  clearAttempts,
+} from "@/lib/auth/rate-limit";
 
 function mapPasswordError(msg: string): string {
   if (msg.includes("Invalid login credentials") || msg.includes("invalid_credentials"))
@@ -16,9 +21,24 @@ function mapPasswordError(msg: string): string {
   return "No se pudo iniciar sesión. Intente nuevamente.";
 }
 
+function getClientIp(): string | null {
+  const h = headers();
+  return (
+    h.get("x-nf-client-connection-ip") ??
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    null
+  );
+}
+
 export async function sendMagicLink(email: string): Promise<{ error?: string }> {
   const supabase = createSessionClient();
+  const ip = getClientIp();
   const origin = headers().get("origin");
+
+  const { blocked } = await checkRateLimit(email, ip ?? "");
+  if (blocked) {
+    return { error: "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentar." };
+  }
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -35,12 +55,21 @@ export async function signInWithPassword(
   email: string,
   password: string
 ): Promise<{ error?: string }> {
+  const ip = getClientIp();
+
+  const { blocked } = await checkRateLimit(email, ip ?? "");
+  if (blocked) {
+    return { error: "Demasiados intentos fallidos. Espera 15 minutos antes de volver a intentar." };
+  }
+
   const supabase = createSessionClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    await recordFailedAttempt(email, ip);
     return { error: mapPasswordError(error.message) };
   }
 
+  await clearAttempts(email);
   redirect("/casos");
 }
