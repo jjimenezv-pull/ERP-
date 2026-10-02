@@ -33,8 +33,9 @@ export async function importCasos(
   const actualizados = rows.length - nuevos;
 
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-    const chunk = rows.slice(i, i + CHUNK_SIZE);
-    // No incluye caso_escalado_proveedor ni estado_proveedor: el upsert nunca toca esas columnas.
+    // Excluye tipo y caso_escalado_proveedor/estado_proveedor: el upsert nunca sobreescribe
+    // clasificaciones ERP asignadas manualmente después del import.
+    const chunk = rows.slice(i, i + CHUNK_SIZE).map(({ tipo: _t, ...rest }) => rest);
     const { error } = await supabase.from("casos").upsert(chunk, { onConflict: "id_glpi" });
     if (error) {
       throw new Error(error.message);

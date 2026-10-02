@@ -33,6 +33,7 @@ export async function importTareasProveedor(
   const actualizados = rows.length - nuevos;
 
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+    // ParsedTareaProveedor no incluye tipo: el upsert nunca sobreescribe la clasificación ERP.
     const chunk = rows.slice(i, i + CHUNK_SIZE);
     const { error } = await supabase.from("casos_proveedor").upsert(chunk, { onConflict: "id_tarea" });
     if (error) {

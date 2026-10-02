@@ -186,12 +186,24 @@ Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
 - 3 bugs: técnico bots filtrados, urgencia coloreada en dashboard, calendario sin días externos
 - Campo `tipo` (Requerimiento/Incidencia) con selección masiva y filtro en ambas tablas
 
+## Actualización 2026-10-02 — Fix bug upsert sobreescribe `tipo`
+
+**Problema detectado vía graphify:** el upsert de `importCasos` enviaba el campo `tipo` a Supabase en cada reimport, sobreescribiendo clasificaciones ERP asignadas manualmente. El campo `tipo` de la columna 4 del XLSX de GLPI es el tipo de ticket de GLPI (no el campo Requerimiento/Incidencia del ERP).
+
+**Fix:** `src/app/casos/import-actions.ts` — strip de `tipo` en el chunk antes del upsert (`.map(({ tipo: _t, ...rest }) => rest)`). Para proveedor no era necesario: `ParsedTareaProveedor` no incluía `tipo` desde el origen.
+
+**Archivos modificados:**
+- `src/app/casos/import-actions.ts` (L36-38)
+- `src/app/proveedor/import-actions.ts` (L36 — solo comentario aclaratorio, sin cambio lógico)
+
 ## Pendiente para la próxima sesión
 
 1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).
-2. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.
-3. Bloqueo de cuenta por intentos fallidos (Supabase free no lo soporta; requiere lógica custom o plan Pro).
-4. Resto de la hoja de ruta original sin tocar: cabeceras de seguridad HTTP, paginación, tests/CI, upgrade de Next.js, reemplazar `xlsx`, auditoría de ediciones (editado_por/editado_en).
+2. **KPIs de tipo** (Requerimiento/Incidencia) una vez haya datos clasificados.
+3. **Rediseño PPTX** — diseño actual no convence; agregar distribución de tipo al reporte.
+4. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.
+5. Bloqueo de cuenta por intentos fallidos (Supabase free no lo soporta; requiere lógica custom o plan Pro).
+6. Resto de la hoja de ruta original sin tocar: cabeceras de seguridad HTTP, paginación, tests/CI, upgrade de Next.js, reemplazar `xlsx`, auditoría de ediciones (editado_por/editado_en).
 
 ## Hallazgos de seguridad (ya resueltos)
 
