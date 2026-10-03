@@ -3,7 +3,6 @@ import { cache } from "react";
 import { createSessionClient } from "@/lib/supabase/session-server";
 import { createServerClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/supabase/types";
-import { timed } from "@/lib/perf";
 
 export interface CurrentProfile {
   id: string;
@@ -25,7 +24,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   // getClaims() verifica el JWT localmente (ES256 + JWKS en caché), sin red.
   // El middleware ya hizo el getUser() autoritativo en esta request (ahí se
   // aplica el ban de auth.users), así que aquí basta validar la firma.
-  const { data } = await timed("rsc.getClaims", () => supabase.auth.getClaims());
+  const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
   if (!claims?.sub) return null;
   return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
@@ -49,9 +48,11 @@ export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> 
   // Lectura con el cliente service_role: ya validamos la sesión arriba, así que esto evita un
   // segundo round-trip de auth y es consistente con el patrón existente de "casos siempre vía service_role".
   const admin = createServerClient();
-  const { data } = await timed("rsc.profile", () =>
-    admin.from("profiles").select("id, email, role, password_set").eq("id", user.id).single()
-  );
+  const { data } = await admin
+    .from("profiles")
+    .select("id, email, role, password_set")
+    .eq("id", user.id)
+    .single();
 
   if (!data) return null;
   return { id: data.id, email: data.email, role: data.role, passwordSet: data.password_set };

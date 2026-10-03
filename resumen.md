@@ -217,7 +217,9 @@ Logs de producción (edge + funciones) mostraron un `POST /auth/v1/token` (refre
 
 **Otros datos medidos:** cada llamada a Supabase desde la función cuesta ~100 ms con conexión reutilizada y ~260-330 ms con conexión nueva; desde el edge ~100 ms. Región de funciones Netlify: IAD (Virginia), no editable en el plan gratuito; Supabase en us-west-2.
 
-**Siguientes pasos posibles (no hechos):** guardar `password_set` en `app_metadata` para quitar la consulta a `profiles` del middleware (-100 ms por request; toca la puerta del primer login, requiere backfill en `auth.users`); quitar las mediciones temporales (`src/lib/perf.ts` y sus usos).
+**Resultado verificado en producción tras el fix:** el `POST /auth/v1/token` aparece solo en la primera petición post-deploy; `rsc.getClaims` bajó de 208-653 ms a 7-21 ms; middleware ~225-350 ms (antes ~320-530); `casos.page.total` ~395-510 ms (antes 560-900). Documento `/casos` en el navegador: **4,22 s (inicio) → 1,75 s (listas livianas + `loading.tsx`) → 1,22 s (fix de cookies)**; `DOMContentLoaded` 2,29 s → 1,30 s y `Finish` 2,90 s → 1,60 s. Las mediciones temporales (`src/lib/perf.ts` y sus usos) ya se eliminaron.
+
+**Qué queda de latencia (no hecho):** (1) guardar `password_set` en `app_metadata` para quitar la consulta a `profiles` del middleware (~-100 a 150 ms por request; toca la puerta del primer login y requiere backfill en `auth.users`); (2) región: funciones en Virginia (no editable en el plan gratuito) vs. Supabase en Oregón, ~100 ms con conexión reutilizada y ~260-330 ms con conexión nueva por cada llamada; mover el proyecto de Supabase a `us-east-1` sería la mejora grande restante, pero implica crear proyecto nuevo y migrar datos/usuarios; (3) importante: el sitio Netlify **despliega desde GitHub**, así que un `git push` a `main` publica en producción.
 
 ## Pendiente para la próxima sesión
 

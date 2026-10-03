@@ -1,15 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient, withSessionCookies } from "@/lib/supabase/middleware";
-import { timed } from "@/lib/perf";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/accept-invite"];
 
 export async function middleware(request: NextRequest) {
-  const t0 = performance.now(); // TEMPORAL (perf)
   const { supabase, getResponse } = createMiddlewareClient(request);
   const {
     data: { user },
-  } = await timed("mw.getUser", () => supabase.auth.getUser());
+  } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
@@ -30,19 +28,17 @@ export async function middleware(request: NextRequest) {
   // entrado (magic link, invitación, etc.) - reusa el mismo cliente
   // anon-key de arriba, permitido por la política profiles_select_own.
   if (user && !isPublic && pathname !== "/set-password") {
-    const { data: profile } = await timed("mw.profiles", () =>
-      supabase.from("profiles").select("password_set").eq("id", user.id).single()
-    );
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("password_set")
+      .eq("id", user.id)
+      .single();
     if (profile && !profile.password_set) {
       return redirectTo("/set-password");
     }
   }
 
-  const total = Math.round(performance.now() - t0);
-  console.log(`[perf] mw.total ${pathname} ${total}ms`);
-  const response = getResponse();
-  response.headers.set("Server-Timing", `mw;dur=${total}`);
-  return response;
+  return getResponse();
 }
 
 export const config = {

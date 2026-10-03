@@ -1,7 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { timedFetch } from "@/lib/perf";
 
 export function createServerClient() {
   return createClient<Database>(
@@ -10,7 +9,7 @@ export function createServerClient() {
     {
       // Next.js patches the global fetch and otherwise caches these requests in its
       // Data Cache indefinitely, regardless of `export const dynamic = "force-dynamic"`.
-      global: { fetch: (input, init) => timedFetch(input, { ...init, cache: "no-store" }) },
+      global: { fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }) },
     }
   );
 }
