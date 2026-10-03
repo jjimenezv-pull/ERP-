@@ -5,6 +5,7 @@ import { CasosTable } from "@/components/casos/casos-table";
 import { ImportDialog } from "@/components/casos/import-dialog";
 import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
+import { timed } from "@/lib/perf";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -118,7 +119,13 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   // Perfil, casos y mapa de estados son independientes: van en paralelo para
   // no encadenar round-trips a Supabase.
   const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] =
-    await Promise.all([getCurrentProfile(), query, cargarMapaEstados()]);
+    await timed("casos.page.total", () =>
+      Promise.all([
+        getCurrentProfile(),
+        timed("casos.query", () => query),
+        timed("casos.mapaEstados", () => cargarMapaEstados()),
+      ])
+    );
   const canEdit = profile?.role === "admin";
 
   if (error || errorMapa) {
