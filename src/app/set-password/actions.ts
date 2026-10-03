@@ -16,7 +16,7 @@ export async function establecerPassword(password: string) {
   }
 
   const session = createSessionClient();
-  const { error } = await session.auth.updateUser({ password });
+  const { data: updated, error } = await session.auth.updateUser({ password });
   if (error) {
     throw new Error(error.message);
   }
@@ -28,6 +28,16 @@ export async function establecerPassword(password: string) {
     .eq("id", user.id);
   if (profileError) {
     throw new Error(profileError.message);
+  }
+
+  // Espejo en app_metadata para que el middleware no consulte `profiles` en cada request.
+  // Se parte del app_metadata actual por si la API reemplaza en vez de fusionar. Si falla,
+  // el middleware cae a `profiles` (ya en true), así que no se bloquea al usuario.
+  const { error: metaError } = await admin.auth.admin.updateUserById(user.id, {
+    app_metadata: { ...updated.user?.app_metadata, password_set: true },
+  });
+  if (metaError) {
+    console.error("No se pudo marcar password_set en app_metadata:", metaError.message);
   }
 
   redirect("/casos");

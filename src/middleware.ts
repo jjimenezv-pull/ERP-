@@ -28,13 +28,18 @@ export async function middleware(request: NextRequest) {
   // entrado (magic link, invitación, etc.) - reusa el mismo cliente
   // anon-key de arriba, permitido por la política profiles_select_own.
   if (user && !isPublic && pathname !== "/set-password") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("password_set")
-      .eq("id", user.id)
-      .single();
-    if (profile && !profile.password_set) {
-      return redirectTo("/set-password");
+    // app_metadata solo se escribe con service_role (user_metadata sí lo edita el
+    // usuario, por eso no se usa). La marca la pone establecerPassword; sin ella
+    // se consulta `profiles`, que sigue siendo la fuente de verdad.
+    if (user.app_metadata?.password_set !== true) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("password_set")
+        .eq("id", user.id)
+        .single();
+      if (profile && !profile.password_set) {
+        return redirectTo("/set-password");
+      }
     }
   }
 
