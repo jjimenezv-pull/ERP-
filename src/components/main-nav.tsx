@@ -29,12 +29,15 @@ const ROLE_LABEL: Record<CurrentProfile["role"], string> = {
 
 export function MainNav({ profile }: { profile: CurrentProfile | null }) {
   const pathname = usePathname();
+  // Un usuario nuevo que aún no definió su contraseña solo puede estar en /set-password
+  // (el middleware lo devuelve ahí): no se le muestran las pestañas ni "Usuarios".
+  const puedeNavegar = profile?.passwordSet === true;
 
   return (
     <header className="bg-primary shadow-sm">
       <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-6 lg:px-10">
         <img src="/logo.png" alt="Soporte ERP" className="h-9 w-auto" />
-        {profile && (
+        {puedeNavegar && (
           <>
             <div className="h-6 w-px bg-white/20" aria-hidden />
             <nav className="flex items-center gap-1">
@@ -69,7 +72,7 @@ export function MainNav({ profile }: { profile: CurrentProfile | null }) {
                 <Badge variant="outline">{ROLE_LABEL[profile.role]}</Badge>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {profile.role === "admin" && (
+              {puedeNavegar && profile.role === "admin" && (
                 <DropdownMenuItem asChild>
                   <Link href="/usuarios">
                     <Users className="mr-2 h-4 w-4" />

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createSessionClient } from "@/lib/supabase/session-server";
 import { createServerClient } from "@/lib/supabase/server";
 import { getVerifiedUser } from "@/lib/auth/get-current-profile";
@@ -40,5 +41,7 @@ export async function establecerPassword(password: string) {
     console.error("No se pudo marcar password_set en app_metadata:", metaError.message);
   }
 
+  // El menú (layout raíz) se pinta según passwordSet: sin esto seguiría oculto tras el redirect.
+  revalidatePath("/", "layout");
   redirect("/casos");
 }
