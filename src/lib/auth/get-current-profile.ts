@@ -11,24 +11,42 @@ export interface CurrentProfile {
   passwordSet: boolean;
 }
 
+export interface SessionUser {
+  id: string;
+  email: string | null;
+}
+
 // cache() memoiza por request: layout.tsx y cada page.tsx llaman a estas
 // funciones de forma independiente, y sin esto cada llamada repetía el
-// round-trip a Supabase (validar sesión + leer perfil) en la misma carga.
-export const getCurrentUser = cache(async () => {
+// trabajo (validar sesión + leer perfil) en la misma carga.
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
+  const supabase = createSessionClient();
+  // getClaims() verifica el JWT localmente (ES256 + JWKS en caché), sin red.
+  // El middleware ya hizo el getUser() autoritativo en esta request (ahí se
+  // aplica el ban de auth.users), así que aquí basta validar la firma.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+});
+
+// Validación autoritativa contra el servidor de Auth. Para /login y set-password:
+// si el servidor invalidó la sesión pero el JWT sigue vigente, getCurrentUser
+// diría "hay sesión" mientras el middleware (getUser) dice que no -> bucle de redirecciones.
+export const getVerifiedUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = createSessionClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user;
+  return user ? { id: user.id, email: user.email ?? null } : null;
 });
 
 export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> => {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  // Lectura con el cliente service_role: ya validamos al usuario vía getUser()
-  // arriba, así que esto evita un segundo round-trip de auth y es consistente
-  // con el patrón existente de "casos siempre vía service_role".
+  // Lectura con el cliente service_role: ya validamos la sesión arriba, así que esto evita un
+  // segundo round-trip de auth y es consistente con el patrón existente de "casos siempre vía service_role".
   const admin = createServerClient();
   const { data } = await admin
     .from("profiles")

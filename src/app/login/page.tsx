@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth/get-current-profile";
+import { getVerifiedUser } from "@/lib/auth/get-current-profile";
 import { LoginForm } from "@/app/login/login-form";
 
 export default async function LoginPage() {
-  const user = await getCurrentUser();
+  const user = await getVerifiedUser();
   if (user) {
     redirect("/casos");
   }

@@ -3,7 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/get-current-profile";
 import { CasosFilters } from "@/components/casos/casos-filters";
 import { CasosTable } from "@/components/casos/casos-table";
 import { ImportDialog } from "@/components/casos/import-dialog";
-import { aplicarEstadoProveedor } from "@/lib/proveedor/cruce";
+import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
@@ -49,9 +49,6 @@ interface CasosPageProps {
 }
 
 export default async function CasosPage({ searchParams }: CasosPageProps) {
-  const profile = await getCurrentProfile();
-  const canEdit = profile?.role === "admin";
-
   const supabase = createServerClient();
 
   const orderBy = (COLUMNAS_ORDENABLES as readonly string[]).includes(searchParams.orderBy ?? "")
@@ -65,7 +62,7 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   // real: se ordena en memoria más abajo, la base ordena por fecha mientras tanto.
   let query = supabase
     .from("casos")
-    .select("*")
+    .select(COLUMNAS_LISTA)
     .order(ordenPorEstadoProveedor ? "fecha_apertura" : orderBy, {
       ascending: orderDir === "asc",
       nullsFirst: false,
@@ -118,10 +115,11 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
     }
   }
 
-  const [{ data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] = await Promise.all([
-    query,
-    cargarMapaEstados(),
-  ]);
+  // Perfil, casos y mapa de estados son independientes: van en paralelo para
+  // no encadenar round-trips a Supabase.
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] =
+    await Promise.all([getCurrentProfile(), query, cargarMapaEstados()]);
+  const canEdit = profile?.role === "admin";
 
   if (error || errorMapa) {
     return (

@@ -37,6 +37,17 @@ const TREND_WEEKS = 8;
 const SLA_WINDOW_DAYS = 7;
 const SLA_TARGET_PCT = 90;
 
+const COLUMNAS_DASHBOARD =
+  "id_glpi, titulo, estado_interno, solicitante, categoria, fecha_apertura, fecha_cierre, tecnico_asignado, urgencia, caso_escalado_proveedor";
+
+// Equivale a .gte/.lte de SQL sobre columnas `date` (yyyy-MM-dd, comparables como
+// texto): con un límite dado excluye NULL; sin límites no filtra nada.
+function enRango(fecha: string | null, desde: string | null, hasta: string | null): boolean {
+  if (desde && (fecha === null || fecha < desde)) return false;
+  if (hasta && (fecha === null || fecha > hasta)) return false;
+  return true;
+}
+
 interface DashboardPageProps {
   searchParams: { vista?: string; desde?: string; hasta?: string };
 }
@@ -47,24 +58,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const supabase = createServerClient();
 
-  const allQuery = supabase.from("casos").select("*");
+  // Una sola consulta con solo las columnas que usan las métricas; los subconjuntos
+  // por periodo se derivan en memoria (antes eran 3 consultas select("*")).
+  const [{ data: all, error: errorAll }, { mapa: mapaProveedor, estados: estadosProveedor, error: errorProveedor }] =
+    await Promise.all([supabase.from("casos").select(COLUMNAS_DASHBOARD), cargarMapaEstados()]);
 
-  let abiertosQuery = supabase.from("casos").select("*");
-  if (desde) abiertosQuery = abiertosQuery.gte("fecha_apertura", desde);
-  if (hasta) abiertosQuery = abiertosQuery.lte("fecha_apertura", hasta);
-
-  let cerradosQuery = supabase.from("casos").select("*").not("fecha_cierre", "is", null);
-  if (desde) cerradosQuery = cerradosQuery.gte("fecha_cierre", desde);
-  if (hasta) cerradosQuery = cerradosQuery.lte("fecha_cierre", hasta);
-
-  const [
-    { data: all, error: errorAll },
-    { data: abiertos, error: errorAbiertos },
-    { data: cerrados, error: errorCerrados },
-    { mapa: mapaProveedor, estados: estadosProveedor, error: errorProveedor },
-  ] = await Promise.all([allQuery, abiertosQuery, cerradosQuery, cargarMapaEstados()]);
-
-  const firstErrorMsg = (errorAll ?? errorAbiertos ?? errorCerrados)?.message ?? errorProveedor;
+  const firstErrorMsg = errorAll?.message ?? errorProveedor;
   if (firstErrorMsg) {
     return (
       <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -74,8 +73,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const allRows = all ?? [];
-  const abiertosRows = abiertos ?? [];
-  const cerradosRows = cerrados ?? [];
+  const abiertosRows = allRows.filter((r) => enRango(r.fecha_apertura, desde, hasta));
+  const cerradosRows = allRows.filter((r) => r.fecha_cierre !== null && enRango(r.fecha_cierre, desde, hasta));
 
   // Sección "Estado actual": "En espera"/"En curso" son snapshot de todo el
   // histórico (no dependen del periodo); "Cerrado" sí refleja el periodo

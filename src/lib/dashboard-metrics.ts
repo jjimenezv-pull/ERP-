@@ -10,7 +10,7 @@ function subcategoria(categoria: string | null): string {
 }
 
 export function groupByCategoria(
-  rows: Caso[],
+  rows: Pick<Caso, "categoria">[],
   topN = 5
 ): { label: string; value: number }[] {
   const counts = new Map<string, number>();
@@ -31,7 +31,7 @@ export function groupByCategoria(
 
 const URGENCIAS_ORDEN = ["Alta", "Mediana", "Baja"] as const;
 
-export function groupByUrgencia(rows: Caso[]): { label: string; value: number }[] {
+export function groupByUrgencia(rows: Pick<Caso, "urgencia">[]): { label: string; value: number }[] {
   const counts = new Map<string, number>();
   for (const row of rows) {
     const key = row.urgencia?.trim() || "Sin especificar";
@@ -59,7 +59,10 @@ function splitTecnicos(tecnico: string | null): string[] {
 // otras áreas) no cuentan como carga de trabajo. Ajustar aquí si el equipo cambia.
 const TECNICOS_EQUIPO = ["Daniel Alejandro Melo", "Jean Carlo Jimenez Vanegas"];
 
-export function groupByTecnico(rows: Caso[], topN = 5): { label: string; value: number }[] {
+export function groupByTecnico(
+  rows: Pick<Caso, "tecnico_asignado">[],
+  topN = 5
+): { label: string; value: number }[] {
   const counts = new Map<string, number>();
   for (const row of rows) {
     for (const nombre of splitTecnicos(row.tecnico_asignado)) {
@@ -80,7 +83,9 @@ export function groupByTecnico(rows: Caso[], topN = 5): { label: string; value: 
 
 const ESTADOS_INTERNOS_ORDEN: EstadoInterno[] = ["En espera", "En curso (asignada)", "Cerrado"];
 
-export function countByEstadoInterno(rows: Caso[]): { estado: EstadoInterno; count: number }[] {
+export function countByEstadoInterno(
+  rows: Pick<Caso, "estado_interno">[]
+): { estado: EstadoInterno; count: number }[] {
   return ESTADOS_INTERNOS_ORDEN.map((estado) => ({
     estado,
     count: rows.filter((r) => r.estado_interno === estado).length,
@@ -129,7 +134,7 @@ export function computeDurationStats(
 const STALE_THRESHOLD_DAYS = 15;
 
 export function computeBacklogAging(
-  allRows: Caso[],
+  allRows: Pick<Caso, "estado_interno" | "fecha_apertura">[],
   today: Date
 ): { count: number; oldestDias: number | null; staleCount: number } {
   const abiertos = allRows.filter((r) => r.estado_interno !== "Cerrado" && r.fecha_apertura);
@@ -145,7 +150,10 @@ export function computeBacklogAging(
 }
 
 export function topOldestOpen(
-  allRows: Caso[],
+  allRows: Pick<
+    Caso,
+    "id_glpi" | "titulo" | "solicitante" | "urgencia" | "estado_interno" | "fecha_apertura"
+  >[],
   today: Date,
   n = 5
 ): { id_glpi: number; titulo: string | null; solicitante: string | null; dias: number; urgencia: string | null }[] {

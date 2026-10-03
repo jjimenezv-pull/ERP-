@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { CasoProveedor } from "@/lib/supabase/types";
-import type { CasoConEstado } from "@/lib/proveedor/cruce";
+import type { CasoListaConEstado } from "@/lib/proveedor/cruce";
 
 const TIPO_CLASS: Record<string, string> = {
   "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
@@ -113,7 +113,7 @@ export function TareasProveedorTable({
   canEdit = false,
 }: {
   tareas: CasoProveedor[];
-  casosGlpi?: CasoConEstado[];
+  casosGlpi?: CasoListaConEstado[];
   canEdit?: boolean;
 }) {
   const [compact, setCompact] = useState(false);

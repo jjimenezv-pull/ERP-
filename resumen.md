@@ -192,6 +192,23 @@ Auditoría estática (grep + `tsc` + `next build`) y limpieza:
 - **Lint:** corregidos 3 errores de ESLint que ya estaban en `main` (expresión ternaria como sentencia en los checkboxes de `casos-table.tsx` y `tareas-proveedor-table.tsx`, y variable sin usar en el strip de `tipo` de `casos/import-actions.ts`). Queda 1 aviso: `<img>` del logo en `main-nav.tsx` (no bloquea).
 - **Se dejaron** los sub-componentes de shadcn sin usar (`DropdownMenuSub*`, `SelectScroll*Button`, `TableFooter`, etc.): es boilerplate estándar y no aporta quitarlos.
 
+## Actualización 2026-10-03 — Rendimiento (app lenta al entrar, cambiar de pestaña y ejecutar acciones)
+
+**Diagnóstico:** medido en producción, el documento `/casos` tardaba **4,22 s**. Los datos son pequeños (267 casos, 24 tareas), así que el costo era la cadena de viajes secuenciales Netlify → Supabase (`us-west-2`): middleware (`getUser` + `profiles`) → layout (`getUser` + perfil) → página (consultas). Eran ~5 viajes en serie por navegación, más payloads grandes y ningún `loading.tsx`.
+
+**Cambios (sin desplegar todavía):**
+- `get-current-profile.ts`: `getCurrentUser` usa `getClaims()` (verifica el JWT ES256 localmente con JWKS, sin red). El middleware **sigue** haciendo `getUser()` en cada request (incluidas las server actions), que es lo que aplica el ban de `auth.users`. El rol sigue leyéndose fresco de `profiles` en cada request. Nueva `getVerifiedUser()` (con `getUser()`) para `/login` y `set-password`: con `getClaims` habría bucle de redirecciones si el servidor invalida una sesión cuyo JWT sigue vigente.
+- `casos/page.tsx` y `proveedor/page.tsx`: perfil + casos + mapa de estados (+ `casos_proveedor` en proveedor) en un solo `Promise.all`. Las tareas del proveedor solo se envían al cliente si es admin.
+- Listas sin textos largos: `COLUMNAS_LISTA` (en `cruce.ts`) excluye `descripcion`, `solucion`, `seguimientos`. El diálogo de detalle los pide bajo demanda con la server action `getCasoDetalle(id)` (cualquier usuario autenticado), con placeholder de carga y caché por id (se conserva el del caso abierto cuando la lista se refresca).
+- Dashboard: de 3 `select("*")` a **1 consulta de 10 columnas**; `abiertos` y `cerrados` se derivan en memoria (equivalencia verificada contra la base real en 7 rangos: mismos ids). Tipos de `dashboard-metrics.ts` pasan a `Pick<Caso, ...>`.
+- `loading.tsx` con skeletons en `casos`, `dashboard`, `proveedor` y `usuarios` (+ `components/ui/skeleton.tsx`, que se había borrado por no usarse y ahora sí se usa).
+
+**Pendiente de verificar / no hecho:**
+- Medir de nuevo el TTFB de `/casos` en producción tras el deploy (antes: 4,22 s).
+- Región de las funciones de Netlify (por defecto suele ser `us-east-2`; la base está en `us-west-2`): revisar en Site configuration → Functions. No se pudo cambiar desde código.
+- Arranque en frío: mitigable con un ping externo periódico; no se implementó.
+- El middleware conserva sus 2 viajes (`getUser` + `profiles.password_set`) a propósito: son la garantía de ban y del primer login.
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).

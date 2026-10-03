@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Eye } from "lucide-react";
-import { updateCasosTipo } from "@/app/casos/actions";
+import { getCasoDetalle, updateCasosTipo, type CasoDetalle } from "@/app/casos/actions";
 import { toast } from "sonner";
 
 import {
@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { CasoConEstado } from "@/lib/proveedor/cruce";
+import type { CasoListaConEstado } from "@/lib/proveedor/cruce";
 import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
 
@@ -112,6 +112,16 @@ function filterBotTecnicos(raw: string | null): string {
   return (humans.length > 0 ? humans : parts).join(", ");
 }
 
+// Placeholder mientras llega el detalle (descripción/solución/seguimientos).
+function TextoCargando() {
+  return (
+    <div className="space-y-2" aria-busy="true" aria-label="Cargando">
+      <div className="h-4 w-full animate-pulse rounded bg-muted" />
+      <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
+    </div>
+  );
+}
+
 function SortableHead({
   column,
   orderBy,
@@ -150,14 +160,22 @@ function SortableHead({
   );
 }
 
-export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit: boolean }) {
+export function CasosTable({ casos, canEdit }: { casos: CasoListaConEstado[]; canEdit: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [rows, setRows] = useState(casos);
   const [isPending, startTransition] = useTransition();
-  const [casoDetalle, setCasoDetalle] = useState<CasoConEstado | null>(null);
+  const [casoDetalle, setCasoDetalle] = useState<CasoListaConEstado | null>(null);
+  // Textos largos bajo demanda, cacheados por id. El ref guarda el cache y
+  // setDetalleListo fuerza el render cuando llega una respuesta.
+  const detallesRef = useRef(new Map<string, CasoDetalle>());
+  const [, setDetalleListo] = useState(0);
+  const [detalleErrorId, setDetalleErrorId] = useState<string | null>(null);
+  const casoDetalleId = casoDetalle?.id ?? null;
+  const casoDetalleIdRef = useRef<string | null>(null);
+  casoDetalleIdRef.current = casoDetalleId;
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const compact = !!searchParams.get("compact");
   const [descExpanded, setDescExpanded] = useState(false);
@@ -166,7 +184,37 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
   useEffect(() => {
     setRows(casos);
     setSelectedIds(new Set());
+    // Tras un refresh (p. ej. reimport) los textos cacheados pueden estar viejos;
+    // el del caso abierto se conserva: editar tipo/escalado desde el diálogo
+    // dispara este refresh y, sin esto, quedaría el placeholder de carga para siempre.
+    const abierto = casoDetalleIdRef.current;
+    const vigente = abierto ? detallesRef.current.get(abierto) : undefined;
+    detallesRef.current.clear();
+    if (abierto && vigente) detallesRef.current.set(abierto, vigente);
   }, [casos]);
+
+  useEffect(() => {
+    if (!casoDetalleId) return;
+    setDetalleErrorId(null);
+    if (detallesRef.current.has(casoDetalleId)) return;
+
+    // Si el usuario abre otro caso antes de que responda, se descarta el estado
+    // de esta respuesta (el cache sí se llena, así reabrir es instantáneo).
+    let cancelado = false;
+    getCasoDetalle(casoDetalleId)
+      .then((detalle) => {
+        detallesRef.current.set(casoDetalleId, detalle);
+        if (!cancelado) setDetalleListo((n) => n + 1);
+      })
+      .catch((err) => {
+        if (cancelado) return;
+        setDetalleErrorId(casoDetalleId);
+        toast.error(err instanceof Error ? err.message : "Error al cargar el detalle del caso");
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [casoDetalleId]);
 
   useEffect(() => {
     setDescExpanded(false);
@@ -402,7 +450,10 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
               {casoDetalle?.titulo ?? "Caso"}
             </DialogTitle>
           </DialogHeader>
-          {casoDetalle && (
+          {casoDetalle && (() => {
+            const detalle = detallesRef.current.get(casoDetalle.id);
+            const cargando = !detalle && detalleErrorId !== casoDetalle.id;
+            return (
             <div className="space-y-4 text-sm">
               {/* Sección: Identificación */}
               <div>
@@ -475,12 +526,14 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
               {/* Sección: Descripción */}
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripción</p>
-                {casoDetalle.descripcion ? (
+                {cargando ? (
+                  <TextoCargando />
+                ) : detalle?.descripcion ? (
                   <>
                     <div className={cn("rounded-md bg-muted/40 px-3 py-2 whitespace-pre-wrap leading-relaxed", !descExpanded && "line-clamp-3")}>
-                      {casoDetalle.descripcion}
+                      {detalle.descripcion}
                     </div>
-                    {casoDetalle.descripcion.length > 200 && (
+                    {detalle.descripcion.length > 200 && (
                       <button
                         type="button"
                         onClick={() => setDescExpanded(!descExpanded)}
@@ -500,12 +553,14 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
               {/* Sección: Solución */}
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Solución / Respuesta</p>
-                {casoDetalle.solucion ? (
+                {cargando ? (
+                  <TextoCargando />
+                ) : detalle?.solucion ? (
                   <>
                     <div className={cn("rounded-md bg-muted/40 px-3 py-2 whitespace-pre-wrap leading-relaxed", !solExpanded && "line-clamp-3")}>
-                      {casoDetalle.solucion}
+                      {detalle.solucion}
                     </div>
-                    {casoDetalle.solucion.length > 200 && (
+                    {detalle.solucion.length > 200 && (
                       <button
                         type="button"
                         onClick={() => setSolExpanded(!solExpanded)}
@@ -521,21 +576,26 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
               </div>
 
               {/* Sección: Avance hasta la fecha — solo en casos no cerrados con seguimientos */}
-              {casoDetalle.estado_interno !== "Cerrado" && casoDetalle.seguimientos && (
+              {casoDetalle.estado_interno !== "Cerrado" && (cargando || detalle?.seguimientos) && (
                 <>
                   <div className="border-t" />
                   <div>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Avance hasta la fecha
                     </p>
-                    <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 whitespace-pre-wrap leading-relaxed text-sm dark:bg-amber-950/20 dark:border-amber-800">
-                      {casoDetalle.seguimientos}
-                    </div>
+                    {cargando ? (
+                      <TextoCargando />
+                    ) : (
+                      <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 whitespace-pre-wrap leading-relaxed text-sm dark:bg-amber-950/20 dark:border-amber-800">
+                        {detalle?.seguimientos}
+                      </div>
+                    )}
                   </div>
                 </>
               )}
             </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

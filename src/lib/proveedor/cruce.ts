@@ -15,6 +15,15 @@ const ESTADOS_TERMINALES = new Set(["Cerrada", "Caducada"]);
 
 export type CasoConEstado = Caso & { estado_proveedor_real: string };
 
+// Fila de las listas (/casos, /proveedor): sin los textos largos, que se piden
+// bajo demanda al abrir el detalle (getCasoDetalle).
+export type CasoLista = Omit<Caso, "descripcion" | "solucion" | "seguimientos">;
+export type CasoListaConEstado = CasoLista & { estado_proveedor_real: string };
+
+// Debe cubrir exactamente las columnas de CasoLista (todas menos los 3 textos largos).
+export const COLUMNAS_LISTA =
+  "id, id_glpi, titulo, estado_interno, tipo, ubicacion, solicitante, categoria, fecha_apertura, fecha_cierre, tecnico_asignado, urgencia, caso_escalado_proveedor, estado_proveedor, semana_carga, created_at, updated_at" as const;
+
 export type MapaEstadosProveedor = Map<number, string>;
 
 export function construirMapaEstados(
@@ -33,7 +42,11 @@ function estadoProveedorReal(
   return mapa.get(Number(limpio)) ?? ESTADO_SIN_MATCH;
 }
 
-export function conEstadoProveedor(casos: Caso[], mapa: MapaEstadosProveedor): CasoConEstado[] {
+// Genérico: el dashboard trae solo las columnas que necesita, no el Caso completo.
+export function conEstadoProveedor<T extends Pick<Caso, "caso_escalado_proveedor">>(
+  casos: T[],
+  mapa: MapaEstadosProveedor
+): (T & { estado_proveedor_real: string })[] {
   return casos.map((c) => ({
     ...c,
     estado_proveedor_real: estadoProveedorReal(c.caso_escalado_proveedor, mapa),
@@ -48,15 +61,15 @@ export function esPendienteProveedor(estado: string): boolean {
 
 // Filtra y ordena en memoria por el estado derivado (no existe como columna,
 // así que la base no puede hacerlo). No hay paginación, así que es suficiente.
-export function aplicarEstadoProveedor(
-  casos: Caso[],
+export function aplicarEstadoProveedor<T extends Pick<Caso, "caso_escalado_proveedor">>(
+  casos: T[],
   mapa: MapaEstadosProveedor,
   opciones: {
     filtro?: string;
     soloEscalados?: boolean;
     ordenarPorEstado?: "asc" | "desc" | null;
   }
-): CasoConEstado[] {
+): (T & { estado_proveedor_real: string })[] {
   let resultado = conEstadoProveedor(casos, mapa);
   if (opciones.soloEscalados) {
     resultado = resultado.filter((c) => c.estado_proveedor_real !== ESTADO_NO_ESCALADO);

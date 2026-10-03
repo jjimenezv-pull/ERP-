@@ -3,14 +3,14 @@
 import { redirect } from "next/navigation";
 import { createSessionClient } from "@/lib/supabase/session-server";
 import { createServerClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth/get-current-profile";
+import { getVerifiedUser } from "@/lib/auth/get-current-profile";
 
 export async function establecerPassword(password: string) {
   if (password.length < 8) {
     throw new Error("La contraseña debe tener al menos 8 caracteres.");
   }
 
-  const user = await getCurrentUser();
+  const user = await getVerifiedUser();
   if (!user) {
     throw new Error("No autorizado.");
   }

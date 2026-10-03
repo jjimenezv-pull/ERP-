@@ -5,9 +5,9 @@ import { CasosTable } from "@/components/casos/casos-table";
 import { ImportTareasDialog } from "@/components/proveedor/import-tareas-dialog";
 import { TareasProveedorTable } from "@/components/proveedor/tareas-proveedor-table";
 import { ProveedorKpiCards } from "@/components/proveedor/proveedor-kpi-cards";
-import { aplicarEstadoProveedor } from "@/lib/proveedor/cruce";
+import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
-import type { CasoProveedor, EstadoInterno } from "@/lib/supabase/types";
+import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +50,6 @@ interface ProveedorPageProps {
 }
 
 export default async function ProveedorPage({ searchParams }: ProveedorPageProps) {
-  const profile = await getCurrentProfile();
-  const canEdit = profile?.role === "admin";
-
   const supabase = createServerClient();
 
   const orderBy = (COLUMNAS_ORDENABLES as readonly string[]).includes(searchParams.orderBy ?? "")
@@ -67,7 +64,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
   // usuario pueda quitar desde la UI, se aplica en memoria más abajo.
   let query = supabase
     .from("casos")
-    .select("*")
+    .select(COLUMNAS_LISTA)
     .not("caso_escalado_proveedor", "is", null)
     .neq("caso_escalado_proveedor", "")
     .order(ordenPorEstadoProveedor ? "fecha_apertura" : orderBy, {
@@ -115,10 +112,17 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     }
   }
 
-  const [{ data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] = await Promise.all([
-    query,
-    cargarMapaEstados(),
-  ]);
+  // Todo en paralelo para no encadenar round-trips. Las tareas del proveedor se
+  // piden siempre (son pocas filas) pero solo se usan y envían al cliente si
+  // el usuario es admin.
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes] =
+    await Promise.all([
+      getCurrentProfile(),
+      query,
+      cargarMapaEstados(),
+      supabase.from("casos_proveedor").select("*").order("fecha_inicio", { ascending: false }),
+    ]);
+  const canEdit = profile?.role === "admin";
 
   if (error || errorMapa) {
     return (
@@ -134,14 +138,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
   });
 
-  let tareasProveedor: CasoProveedor[] = [];
-  if (canEdit) {
-    const { data } = await supabase
-      .from("casos_proveedor")
-      .select("*")
-      .order("fecha_inicio", { ascending: false });
-    tareasProveedor = data ?? [];
-  }
+  const tareasProveedor = canEdit ? (tareasRes.data ?? []) : [];
 
   return (
     <div className="space-y-4">
