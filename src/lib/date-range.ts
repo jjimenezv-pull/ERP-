@@ -4,7 +4,7 @@ export type Vista = "semanal" | "mensual" | "historico";
 
 const DATE_FMT = "yyyy-MM-dd";
 
-export function defaultRangeForVista(vista: Vista): { desde: string | null; hasta: string | null } {
+function defaultRangeForVista(vista: Vista): { desde: string | null; hasta: string | null } {
   const today = new Date();
   if (vista === "semanal") {
     const lunes = startOfWeek(today, { weekStartsOn: 1 });

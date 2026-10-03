@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ERP — Soporte
 
-## Getting Started
+Herramienta interna de administración para gestionar casos de soporte importados desde GLPI, cruzarlos con las tareas del proveedor y consultar un dashboard de KPIs (con export a PPTX).
 
-First, run the development server:
+**Stack:** Next.js 14 (App Router), Supabase (Postgres + Auth), Tailwind + shadcn/ui, desplegado en Netlify.
+
+## Desarrollo local
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Crea `.env.local` (está en `.gitignore`):
 
-## Learn More
+| Variable | Uso |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anon (auth en cliente y middleware) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave service_role, **solo servidor** (acceso a datos) |
 
-To learn more about Next.js, take a look at the following resources:
+En Netlify se configuran en Site settings → Environment variables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Base de datos
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Las migraciones están en `supabase/migrations/` y se ejecutan manualmente en el SQL editor de Supabase.
 
-## Deploy on Vercel
+## Despliegue
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx netlify-cli@17 deploy --site <SITE_ID> --build --prod --message "..."
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+El historial de decisiones y cambios está en [`resumen.md`](./resumen.md).

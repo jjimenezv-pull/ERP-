@@ -14,7 +14,7 @@ const COLOR_ESPERA = "F5B400";
 const COLOR_CURSO = "1BAF7A";
 const COLOR_CERRADO = "1E3A5F";
 
-export interface DashboardExportData {
+interface DashboardExportData {
   rangoLabel: string;
   slaWindowDays: number;
   slaTargetPct: number;

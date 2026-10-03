@@ -147,7 +147,7 @@ Columna ya existe en producción. El próximo import de GLPI poblará los seguim
 
 Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
 
-**Base de datos:** migración `supabase/migrations/20261001_tipo_columns.sql` — añade `tipo text` a `casos` y `casos_proveedor`. **Debe ejecutarse en el SQL editor de Supabase antes de usar la funcionalidad.**
+**Base de datos:** migración `supabase/migrations/20261001_tipo_columns.sql` — añade `tipo text` a `casos` y `casos_proveedor` (valores `'Requerimiento'`, `'Incidencia'`, null). **Ya aplicada en Supabase.**
 
 **Cambios de código:**
 - `src/lib/supabase/types.ts`: `tipo: string | null` en `casos_proveedor.Row`; también añadido `login_attempts` (faltaba y causaba error de build).
@@ -160,21 +160,7 @@ Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
 
 **Colores:** Requerimiento = azul `#1a3d96` (mismo azul de la app), Incidencia = naranja `#ea580c`.
 
-## Actualización 2026-10-01 — Campo Tipo (Requerimiento / Incidencia)
-
-- **Columna `tipo`** en `casos` y `casos_proveedor` (texto libre, valores `'Requerimiento'`, `'Incidencia'`, null).
-- **Badges:** Requerimiento = azul `#1a3d96`, Incidencia = naranja `#ea580c`, sin clasificar = "—".
-- **Selección masiva (solo admin):** checkbox por fila + select-all en header. Barra flotante al pie con botones Requerimiento / Incidencia / Sin clasificar. Actualización optimista inmediata + toast de confirmación.
-- **Select individual:** en el diálogo de detalle de cada caso (Gestión de Casos).
-- **Filtro Tipo** en el ribbon de Gestión de Casos (incluye "Sin clasificar" para encontrar los no clasificados).
-- **Tareas del proveedor:** misma funcionalidad (checkbox + barra flotante, columna tipo), sin diálogo de detalle.
-- **Migración aplicada en Supabase:** `ALTER TABLE casos ADD COLUMN IF NOT EXISTS tipo text; ALTER TABLE casos_proveedor ADD COLUMN IF NOT EXISTS tipo text;`
-
-## Pendientes identificados en sesión 2026-10-01
-
-- **Migración SQL pendiente de aplicar:** `ALTER TABLE casos ADD COLUMN IF NOT EXISTS tipo text; ALTER TABLE casos_proveedor ADD COLUMN IF NOT EXISTS tipo text;` — ejecutar en Supabase SQL editor.
-- **Redesign PPTX:** el usuario no está conforme con el diseño actual del export. Revisarlo en una sesión dedicada. Al redesignar, incluir ahí la distribución Requerimiento/Incidencia (campo `tipo`).
-- **KPIs de tipo (Requerimiento/Incidencia):** implementar después de que los casos estén clasificados.
+Comportamiento: sin clasificar se muestra como "—"; selección masiva con actualización optimista + toast.
 
 ## Deploy 2026-10-01
 
@@ -196,9 +182,19 @@ Implementado en ambas tablas (Gestión de Casos y Tareas de Proveedor).
 - `src/app/casos/import-actions.ts` (L36-38)
 - `src/app/proveedor/import-actions.ts` (L36 — solo comentario aclaratorio, sin cambio lógico)
 
+## Actualización 2026-10-03 — Limpieza de código obsoleto
+
+Auditoría estática (grep + `tsc` + `next build`) y limpieza:
+- **Eliminado:** carpetas `.agents/` y `.claude/` (skill `design-taste-frontend` duplicada; ya está en la cuenta), `skills-lock.json`, `.env.local.example`, `deno.lock` (artefacto del CLI de Netlify, ahora en `.gitignore`), `src/components/ui/skeleton.tsx` y `separator.tsx` (sin uso).
+- **Dependencias quitadas:** `@radix-ui/react-separator` (solo la usaba `separator.tsx`) y `next-themes` (no había `ThemeProvider`; `sonner.tsx` ahora fija `theme="system"`).
+- **Código:** eliminada `estaEscalado()` (`src/lib/proveedor/cruce.ts`, función muerta); se quitó `export` a símbolos que solo se usan en su propio archivo (`DATE_FORMATS`, `ESTADOS_INTERNOS_VALIDOS`, `MAX_IMPORT_FILE_SIZE_BYTES`, `defaultRangeForVista`, `estadoProveedorReal`, `EstadoProveedor`, `DashboardExportData`).
+- **Docs:** `README.md` reemplazado (era la plantilla de create-next-app) e incluye las variables de entorno que antes documentaba `.env.local.example`; secciones duplicadas de `tipo` en este archivo consolidadas.
+- **Lint:** corregidos 3 errores de ESLint que ya estaban en `main` (expresión ternaria como sentencia en los checkboxes de `casos-table.tsx` y `tareas-proveedor-table.tsx`, y variable sin usar en el strip de `tipo` de `casos/import-actions.ts`). Queda 1 aviso: `<img>` del logo en `main-nav.tsx` (no bloquea).
+- **Se dejaron** los sub-componentes de shadcn sin usar (`DropdownMenuSub*`, `SelectScroll*Button`, `TableFooter`, etc.): es boilerplate estándar y no aporta quitarlos.
+
 ## Pendiente para la próxima sesión
 
-1. **Reimportar GLPI** para poblar `seguimientos` en los casos existentes (el campo ya existía en los CSVs anteriores pero no se capturaba).
+1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).
 2. **KPIs de tipo** (Requerimiento/Incidencia) una vez haya datos clasificados.
 3. **Rediseño PPTX** — diseño actual no convence; agregar distribución de tipo al reporte.
 4. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.

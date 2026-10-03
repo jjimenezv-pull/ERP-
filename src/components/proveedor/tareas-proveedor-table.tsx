@@ -263,7 +263,8 @@ export function TareasProveedorTable({
                     onChange={(e) => {
                       setSelectedIds((prev) => {
                         const next = new Set(prev);
-                        e.target.checked ? next.add(tarea.id) : next.delete(tarea.id);
+                        if (e.target.checked) next.add(tarea.id);
+                        else next.delete(tarea.id);
                         return next;
                       });
                     }}

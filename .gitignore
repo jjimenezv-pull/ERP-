@@ -41,3 +41,6 @@ next-env.d.ts
 
 # graphify - regenerable knowledge graph, keep local only
 /graphify-out/
+
+# netlify cli artifact
+deno.lock

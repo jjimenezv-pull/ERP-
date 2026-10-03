@@ -23,11 +23,7 @@ export function construirMapaEstados(
   return new Map(tareas.map((t) => [t.id_tarea, t.estado?.trim() || ESTADO_SIN_ESTADO]));
 }
 
-export function estaEscalado(ref: string | null): boolean {
-  return Boolean(ref?.trim());
-}
-
-export function estadoProveedorReal(
+function estadoProveedorReal(
   ref: string | null,
   mapa: MapaEstadosProveedor
 ): string {

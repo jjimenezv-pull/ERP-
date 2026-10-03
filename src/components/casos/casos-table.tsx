@@ -302,7 +302,8 @@ export function CasosTable({ casos, canEdit }: { casos: CasoConEstado[]; canEdit
                     onChange={(e) => {
                       setSelectedIds((prev) => {
                         const next = new Set(prev);
-                        e.target.checked ? next.add(caso.id) : next.delete(caso.id);
+                        if (e.target.checked) next.add(caso.id);
+                        else next.delete(caso.id);
                         return next;
                       });
                     }}

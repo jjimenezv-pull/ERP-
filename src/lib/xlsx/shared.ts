@@ -1,13 +1,13 @@
 import { format, isValid, parse } from "date-fns";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
-export const ESTADOS_INTERNOS_VALIDOS: EstadoInterno[] = [
+const ESTADOS_INTERNOS_VALIDOS: EstadoInterno[] = [
   "En curso (asignada)",
   "Cerrado",
   "En espera",
 ];
 
-export const DATE_FORMATS = [
+const DATE_FORMATS = [
   "dd/MM/yyyy HH:mm",
   "dd/MM/yyyy",
   "dd-MM-yyyy HH:mm",
@@ -22,7 +22,7 @@ export const DATE_FORMATS = [
 // validación propia de la app; sin un límite, un archivo desproporcionadamente
 // grande puede colgar el hilo principal del navegador. 20 MB es muy superior
 // a un export real de GLPI o del proveedor (que pesan unos pocos MB).
-export const MAX_IMPORT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+const MAX_IMPORT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
 
 export function assertImportFileSize(byteLength: number): void {
   if (byteLength > MAX_IMPORT_FILE_SIZE_BYTES) {

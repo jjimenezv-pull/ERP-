@@ -1,5 +1,5 @@
 export type EstadoInterno = "En curso (asignada)" | "Cerrado" | "En espera";
-export type EstadoProveedor = "N/A" | "Pendiente" | "En revisión" | "Resuelto";
+type EstadoProveedor ="N/A" | "Pendiente" | "En revisión" | "Resuelto";
 export type UserRole = "admin" | "viewer";
 
 export type Database = {
