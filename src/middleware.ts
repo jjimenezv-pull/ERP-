@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createMiddlewareClient } from "@/lib/supabase/middleware";
+import { createMiddlewareClient, withSessionCookies } from "@/lib/supabase/middleware";
 import { timed } from "@/lib/perf";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/accept-invite"];
 
 export async function middleware(request: NextRequest) {
   const t0 = performance.now(); // TEMPORAL (perf)
-  const { supabase, response } = createMiddlewareClient(request);
+  const { supabase, getResponse } = createMiddlewareClient(request);
   const {
     data: { user },
   } = await timed("mw.getUser", () => supabase.auth.getUser());
@@ -14,12 +14,15 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
+  const redirectTo = (path: string) =>
+    withSessionCookies(getResponse(), NextResponse.redirect(new URL(path, request.url)));
+
   if (!user && !isPublic) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectTo("/login");
   }
 
   if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/casos", request.url));
+    return redirectTo("/casos");
   }
 
   // Puerta obligatoria de "primer login": mientras no haya definido una
@@ -31,12 +34,13 @@ export async function middleware(request: NextRequest) {
       supabase.from("profiles").select("password_set").eq("id", user.id).single()
     );
     if (profile && !profile.password_set) {
-      return NextResponse.redirect(new URL("/set-password", request.url));
+      return redirectTo("/set-password");
     }
   }
 
   const total = Math.round(performance.now() - t0);
   console.log(`[perf] mw.total ${pathname} ${total}ms`);
+  const response = getResponse();
   response.headers.set("Server-Timing", `mw;dur=${total}`);
   return response;
 }

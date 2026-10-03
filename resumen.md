@@ -209,6 +209,16 @@ Auditoría estática (grep + `tsc` + `next build`) y limpieza:
 - Arranque en frío: mitigable con un ping externo periódico; no se implementó.
 - El middleware conserva sus 2 viajes (`getUser` + `profiles.password_set`) a propósito: son la garantía de ban y del primer login.
 
+### Causa raíz encontrada con las mediciones (2026-10-03)
+
+Logs de producción (edge + funciones) mostraron un `POST /auth/v1/token` (refresco del token) en **cada** request, tanto en el middleware (~110-300 ms) como en el Server Component (`rsc.getClaims` ≈ 300-400 ms, así que `getClaims()` nunca era local). Causa: en `src/lib/supabase/middleware.ts`, `setAll` reasignaba la variable `response` al refrescar el token, pero el llamador había guardado la referencia inicial, así que las cookies nuevas **nunca llegaban al navegador ni a los Server Components** (cookie vencida para siempre -> refresco en cada request, dos veces por request). Además rotaba refresh tokens, con riesgo de cierres de sesión inesperados.
+
+**Fix:** `createMiddlewareClient` ahora devuelve `getResponse()` (getter) y `withSessionCookies()` copia las cookies de sesión a las redirecciones; `middleware.ts` usa ambos. Es el patrón recomendado por Supabase. Se espera: tras el primer refresco, `getClaims()` verifica local (JWKS en memoria) y el middleware queda en `getUser` + `profiles`.
+
+**Otros datos medidos:** cada llamada a Supabase desde la función cuesta ~100 ms con conexión reutilizada y ~260-330 ms con conexión nueva; desde el edge ~100 ms. Región de funciones Netlify: IAD (Virginia), no editable en el plan gratuito; Supabase en us-west-2.
+
+**Siguientes pasos posibles (no hechos):** guardar `password_set` en `app_metadata` para quitar la consulta a `profiles` del middleware (-100 ms por request; toca la puerta del primer login, requiere backfill en `auth.users`); quitar las mediciones temporales (`src/lib/perf.ts` y sus usos).
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).

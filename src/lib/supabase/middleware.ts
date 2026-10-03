@@ -24,5 +24,14 @@ export function createMiddlewareClient(request: NextRequest) {
     }
   );
 
-  return { supabase, response };
+  // Getter, no el valor: al refrescar el token, setAll reasigna `response`. Si el
+  // llamador guardara la referencia inicial, las cookies nuevas nunca llegarían al
+  // navegador ni a los Server Components, y cada request volvería a refrescar el token.
+  return { supabase, getResponse: () => response };
+}
+
+// Las redirecciones también deben llevar las cookies de sesión recién refrescadas (o borradas).
+export function withSessionCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach((cookie) => to.cookies.set(cookie));
+  return to;
 }
