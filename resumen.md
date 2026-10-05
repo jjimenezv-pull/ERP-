@@ -225,6 +225,10 @@ Logs de producción (edge + funciones) mostraron un `POST /auth/v1/token` (refre
 
 **Qué queda de latencia (no hecho):** (1) región: funciones en Virginia (no editable en el plan gratuito) vs. Supabase en Oregón, ~100 ms con conexión reutilizada y ~260-330 ms con conexión nueva por cada llamada; mover el proyecto de Supabase a `us-east-1` sería la mejora grande restante, pero implica crear proyecto nuevo y migrar datos/usuarios; (2) importante: el sitio Netlify **despliega desde GitHub**, así que un `git push` a `main` publica en producción.
 
+## Actualización 2026-10-05 — Fix: no dejaba cambiar roles en /usuarios
+
+`cambiar_rol_usuario_seguro` (función RPC en Supabase) fallaba con `42804: column "role" is of type user_role but expression is of type text`: `profiles.role` es el enum `user_role` y la función le asignaba el parámetro `text` sin cast. En producción la app solo mostraba el error genérico de Server Components. Fix: `nuevo_rol::public.user_role` en el `UPDATE`. Migración `supabase/migrations/20261005_fix_cambiar_rol_cast.sql` **ya aplicada en Supabase** (no requiere deploy de la app). Verificado con una llamada que no cambia ningún rol. `bloquear_usuario_seguro` no tiene el problema (solo compara, no asigna).
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).
