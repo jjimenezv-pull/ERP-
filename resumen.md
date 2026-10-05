@@ -229,6 +229,8 @@ Logs de producción (edge + funciones) mostraron un `POST /auth/v1/token` (refre
 
 `cambiar_rol_usuario_seguro` (función RPC en Supabase) fallaba con `42804: column "role" is of type user_role but expression is of type text`: `profiles.role` es el enum `user_role` y la función le asignaba el parámetro `text` sin cast. En producción la app solo mostraba el error genérico de Server Components. Fix: `nuevo_rol::public.user_role` en el `UPDATE`. Migración `supabase/migrations/20261005_fix_cambiar_rol_cast.sql` **ya aplicada en Supabase** (no requiere deploy de la app). Verificado con una llamada que no cambia ningún rol. `bloquear_usuario_seguro` no tiene el problema (solo compara, no asigna).
 
+**Hallazgo de seguridad (revisión automática, resuelto el mismo día):** `cambiar_rol_usuario_seguro` y `bloquear_usuario_seguro` son `SECURITY DEFINER` y tenían `EXECUTE` para `PUBLIC`/`anon`/`authenticated`, o sea invocables vía RPC con la anon key (pública y en el historial de git): cualquiera podía volverse admin. El error del cast lo tapaba por accidente; el fix lo habría dejado explotable. Se hizo `REVOKE ... FROM PUBLIC, anon, authenticated` y `GRANT ... TO service_role` en ambas (la app las llama con service_role). Verificado con `has_function_privilege`. **Pendiente de revisar:** otras funciones/tablas expuestas a `anon` (correr los advisors de seguridad de Supabase).
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).

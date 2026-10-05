@@ -31,3 +31,10 @@ begin
   update public.profiles set role = nuevo_rol::public.user_role where id = target_id;
 end;
 $function$;
+
+-- Seguridad: son SECURITY DEFINER y por defecto PostgREST las expone a anon/authenticated
+-- (la anon key es pública). Solo el servidor (service_role) debe poder ejecutarlas.
+REVOKE EXECUTE ON FUNCTION public.cambiar_rol_usuario_seguro(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.bloquear_usuario_seguro(uuid, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cambiar_rol_usuario_seguro(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.bloquear_usuario_seguro(uuid, boolean) TO service_role;
