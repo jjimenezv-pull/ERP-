@@ -38,3 +38,45 @@ REVOKE EXECUTE ON FUNCTION public.cambiar_rol_usuario_seguro(uuid, text) FROM PU
 REVOKE EXECUTE ON FUNCTION public.bloquear_usuario_seguro(uuid, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.cambiar_rol_usuario_seguro(uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.bloquear_usuario_seguro(uuid, boolean) TO service_role;
+
+-- Invariante "último admin": cuenta solo administradores ACTIVOS (no bloqueados), igual que
+-- bloquear_usuario_seguro. Antes, con 2 admins y uno bloqueado, se podía degradar al único
+-- admin activo y nadie podía entrar. Si el objetivo ya está bloqueado, degradarlo es válido.
+-- (CREATE OR REPLACE conserva los GRANT/REVOKE de arriba.)
+CREATE OR REPLACE FUNCTION public.cambiar_rol_usuario_seguro(target_id uuid, nuevo_rol text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  admins_activos int;
+  rol_objetivo text;
+  objetivo_activo boolean;
+begin
+  if nuevo_rol not in ('admin', 'viewer') then
+    raise exception 'Rol inválido: %', nuevo_rol;
+  end if;
+
+  perform id from public.profiles where role = 'admin' for update;
+
+  select p.role::text, (u.banned_until is null or u.banned_until < now())
+    into rol_objetivo, objetivo_activo
+  from public.profiles p
+  join auth.users u on u.id = p.id
+  where p.id = target_id;
+
+  if rol_objetivo = 'admin' and nuevo_rol <> 'admin' and objetivo_activo then
+    select count(*) into admins_activos
+    from public.profiles p
+    join auth.users u on u.id = p.id
+    where p.role = 'admin'
+      and (u.banned_until is null or u.banned_until < now());
+    if admins_activos <= 1 then
+      raise exception 'No puedes quitarle el rol de admin al único administrador activo restante.';
+    end if;
+  end if;
+
+  update public.profiles set role = nuevo_rol::public.user_role where id = target_id;
+end;
+$function$;
