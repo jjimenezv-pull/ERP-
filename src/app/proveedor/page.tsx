@@ -6,8 +6,9 @@ import { ImportTareasDialog } from "@/components/proveedor/import-tareas-dialog"
 import { TareasProveedorTable } from "@/components/proveedor/tareas-proveedor-table";
 import { ProveedorKpiCards } from "@/components/proveedor/proveedor-kpi-cards";
 import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
+import { construirParesGlpi } from "@/lib/proveedor/par";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
-import { COLUMNAS_TAREAS_LISTA, type TareaLista } from "@/lib/proveedor/tareas";
+import { COLUMNAS_TAREAS_LISTA, hoyEnBogota, type TareaLista } from "@/lib/proveedor/tareas";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -113,10 +114,10 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     }
   }
 
-  // Todo en paralelo para no encadenar round-trips. Las tareas del proveedor se
-  // piden siempre (son pocas filas) pero solo se usan y envían al cliente si
-  // el usuario es admin.
-  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes] =
+  // Todo en paralelo para no encadenar round-trips. Las tareas del proveedor y los
+  // pares caso<->tarea se piden siempre (son pocas filas) pero solo se usan y
+  // envían al cliente si el usuario es admin.
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes, paresRes] =
     await Promise.all([
       getCurrentProfile(),
       query,
@@ -125,6 +126,14 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
         .from("casos_proveedor")
         .select(COLUMNAS_TAREAS_LISTA)
         .order("fecha_inicio", { ascending: false }),
+      // Sin los filtros de la página: la columna "Caso GLPI" y la pestaña del
+      // detalle de cada tarea no deben depender de lo que se filtre arriba.
+      supabase
+        .from("casos")
+        .select("id, id_glpi, titulo, caso_escalado_proveedor")
+        .not("caso_escalado_proveedor", "is", null)
+        .neq("caso_escalado_proveedor", "")
+        .order("id_glpi", { ascending: true }),
     ]);
   const canEdit = profile?.role === "admin";
 
@@ -144,9 +153,11 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
 
   // Solo admins reciben las tareas. Sin los textos largos (se piden al abrir el detalle).
   const tareasProveedor: TareaLista[] = canEdit ? (tareasRes.data ?? []) : [];
-  // "Hoy" se calcula una sola vez aquí, en hora de Bogotá: el servidor corre en UTC y
-  // new Date() en el cliente descuadraría los días por la noche y la hidratación.
-  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
+  const paresGlpi = canEdit ? construirParesGlpi(paresRes.data ?? []) : [];
+  // Ids de tareas existentes (para la pestaña "Caso proveedor" de la tabla de casos).
+  const idsTareas = canEdit ? Array.from(mapa.keys()) : undefined;
+  // "Hoy" se calcula una sola vez aquí: ver hoyEnBogota.
+  const hoy = hoyEnBogota();
 
   return (
     <div className="space-y-4">
@@ -159,7 +170,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
 
       <CasosFilters estadosProveedor={estadosProveedor} />
 
-      <CasosTable casos={casos} canEdit={canEdit} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}
@@ -172,7 +183,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
             <ImportTareasDialog />
           </div>
           <ProveedorKpiCards tareas={tareasProveedor} />
-          <TareasProveedorTable tareas={tareasProveedor} casosGlpi={casos} canEdit={canEdit} hoy={hoy} />
+          <TareasProveedorTable tareas={tareasProveedor} paresGlpi={paresGlpi} canEdit={canEdit} hoy={hoy} />
         </section>
       )}
     </div>

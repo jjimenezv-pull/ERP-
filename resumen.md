@@ -245,6 +245,14 @@ El proveedor cambió el export de tareas (`Tareas_5.csv`, 15 columnas: ID de tar
 - **Otros:** el "seleccionar todo" ahora solo marca las filas visibles; la tabla se resincroniza tras un reimport. `/proveedor` bajó de 305 kB a 189 kB de JS (el importador ya no carga SheetJS).
 - **Pendiente:** el usuario debe reimportar `Tareas_5.csv` para llenar las columnas nuevas de las 33 tareas existentes (hasta entonces muestran "—").
 
+## Actualización 2026-10-21 (continuación) — Orden de columnas y detalle emparejado (Caso proveedor / Caso GLPI)
+
+- **Orden de columnas de Casos Proveedor** (tras checkbox y ojo): Caso GLPI, ID tarea, Asunto, Autor, Asignatario, Estatus, Tipo (Requerimiento/Incidencia), F. inicio, Días creación, Última actualización, Días últ. respuesta, F. fin, % Realizado, Proyecto, Tipo de tarea, Prioridad, Tipo facturación.
+- **Detalle con dos pestañas cuando hay par**, en ambas tablas (GLPI y tareas): "Caso proveedor" y "Caso GLPI"; se abre en la pestaña de la tabla de origen y el otro lado se carga al visitarlo por primera vez. Sin par, el diálogo queda como antes. La pestaña "Caso proveedor" es **solo para admins** (los datos de tareas son solo admin; los visualizadores no reciben nada de tareas).
+- **Emparejamiento:** `casos.caso_escalado_proveedor` (texto), recortado y leído como entero, igual a `casos_proveedor.id_tarea` (`src/lib/proveedor/par.ts`; "0123 " y "123" son la misma tarea; si varios casos apuntan a la misma tarea gana el de menor `id_glpi`). En `/proveedor` se arma un mapa de pares **sin los filtros de la página**, así la columna "Caso GLPI" y la pestaña no dependen de lo que se filtre arriba (antes la columna podía quedar en "—" si un filtro ocultaba el caso). La tabla de casos recibe `idsTareas` solo para admins (reusa el mapa de estados, sin consulta extra).
+- **Código:** detalles extraídos a `caso-glpi-detalle.tsx` y `tarea-detalle.tsx`, con pestañas en `par-detalle-tabs.tsx` y un hook de carga bajo demanda (`src/lib/use-detalle-bajo-demanda.ts`: caché por id, ignora respuestas tardías, toast de error). Acciones nuevas **solo admin**: `getCasoGlpiPorTarea` y `getTareaPorIdTarea`. `updateCasosTipo` ahora también revalida `/proveedor`.
+- **Pendiente de probar en pantalla** (el subagente no pudo abrir un navegador): diseño en ancho de teléfono/laptop, cambio de pestañas y que la edición optimista del tipo persista en la pestaña del otro lado.
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).

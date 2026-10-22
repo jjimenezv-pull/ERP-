@@ -24,6 +24,9 @@ export type CasoListaConEstado = CasoLista & { estado_proveedor_real: string };
 export const COLUMNAS_LISTA =
   "id, id_glpi, titulo, estado_interno, tipo, ubicacion, solicitante, categoria, fecha_apertura, fecha_cierre, tecnico_asignado, urgencia, caso_escalado_proveedor, estado_proveedor, semana_carga, created_at, updated_at" as const;
 
+// Lista + textos largos: para traer un solo caso completo (par de una tarea).
+export const COLUMNAS_CASO_DETALLE = `${COLUMNAS_LISTA}, descripcion, solucion, seguimientos` as const;
+
 export type MapaEstadosProveedor = Map<number, string>;
 
 export function construirMapaEstados(

@@ -14,6 +14,15 @@ export interface TareaDetalle {
 export const COLUMNAS_TAREAS_LISTA =
   "id, id_tarea, autor, fecha_inicio, fecha_fin, asunto, asignatario, tipo_facturacion, prioridad, proyecto, porcentaje_realizado, actualizado_por, estado, tipo, tipo_tarea, ultima_actualizacion, fecha_ultima_respuesta, created_at, updated_at" as const;
 
+// Lista + textos largos: para traer una sola tarea completa (par de un caso GLPI).
+export const COLUMNAS_TAREA_DETALLE = `${COLUMNAS_TAREAS_LISTA}, descripcion, last_comments` as const;
+
+// Fecha de hoy (yyyy-MM-dd) en hora de Bogotá: el servidor corre en UTC y
+// new Date() en el cliente descuadraría los días por la noche y la hidratación.
+export function hoyEnBogota(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
+}
+
 // Días calendario entre `hoy` (yyyy-MM-dd, calculado en el servidor en zona
 // Bogotá) y `fecha` (yyyy-MM-dd). Nunca negativo; null si no hay fecha válida.
 export function diasDesde(hoy: string, fecha: string | null): number | null {

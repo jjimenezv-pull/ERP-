@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-current-profile";
 import type { ParsedTareaProveedor } from "@/lib/proveedor/parse-tareas";
-import type { TareaDetalle } from "@/lib/proveedor/tareas";
+import { COLUMNAS_TAREA_DETALLE, hoyEnBogota, type TareaDetalle } from "@/lib/proveedor/tareas";
+import type { TareaPar } from "@/lib/proveedor/par";
 
 const CHUNK_SIZE = 500;
 
@@ -101,4 +102,28 @@ export async function getTareaDetalle(id: string): Promise<TareaDetalle> {
     throw new Error("Tarea no encontrada.");
   }
   return data;
+}
+
+// Tarea emparejada con un caso GLPI (lista + textos largos), o null si no existe.
+// Solo admin, como el resto de acciones de tareas.
+export async function getTareaPorIdTarea(idTarea: number): Promise<TareaPar | null> {
+  await requireAdmin();
+  if (!Number.isSafeInteger(idTarea) || idTarea < 0) {
+    throw new Error("ID de tarea inválido.");
+  }
+
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("casos_proveedor")
+    .select(COLUMNAS_TAREA_DETALLE)
+    .eq("id_tarea", idTarea)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) return null;
+
+  const { descripcion, last_comments, ...tarea } = data;
+  return { tarea, detalle: { descripcion, last_comments }, hoy: hoyEnBogota() };
 }

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { format, parseISO } from "date-fns";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Eye } from "lucide-react";
-import { getCasoDetalle, updateCasosTipo, type CasoDetalle } from "@/app/casos/actions";
+import { updateCasosTipo, type CasoDetalle } from "@/app/casos/actions";
 import { toast } from "sonner";
 
 import {
@@ -23,17 +22,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CasoGlpiDetalle } from "@/components/casos/caso-glpi-detalle";
+import { ParDetalleTabs } from "@/components/proveedor/par-detalle-tabs";
+import { TareaDePar } from "@/components/proveedor/tarea-detalle";
 import type { CasoListaConEstado } from "@/lib/proveedor/cruce";
+import { idTareaDeReferencia, type TareaPar } from "@/lib/proveedor/par";
+import { filterBotTecnicos, formatFecha } from "@/lib/formato";
+import { limpiarCacheSalvo } from "@/lib/use-detalle-bajo-demanda";
 import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
-
 const TIPO_CLASS: Record<string, string> = {
   "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
   "Incidencia":    "border-transparent bg-[#ea580c] text-white",
@@ -86,40 +83,11 @@ type OrderDir = "asc" | "desc";
 const DEFAULT_ORDER_BY: SortableColumn = "fecha_apertura";
 const DEFAULT_ORDER_DIR: OrderDir = "desc";
 
-function formatFecha(value: string | null) {
-  if (!value) return "—";
-  try {
-    // parseISO evita el corrimiento de un día que da `new Date("yyyy-MM-dd")`
-    // (lo interpreta como UTC) al formatear en una zona horaria negativa.
-    return format(parseISO(value), "dd/MM/yyyy");
-  } catch {
-    return value;
-  }
-}
-
 // El export de GLPI a veces trae "<br>" literal cuando hay varios valores en una celda
 // (ej. varios técnicos asignados). Se normaliza a ", " para que se lea como texto plano.
 function cleanText(value: string | null) {
   if (!value) return "—";
   return value.replace(/\s*<br\s*\/?>\s*/gi, ", ");
-}
-
-function filterBotTecnicos(raw: string | null): string {
-  if (!raw) return "—";
-  const parts = raw.replace(/\s*<br\s*\/?>\s*/gi, ", ")
-    .split(",").map((t) => t.trim()).filter(Boolean);
-  const humans = parts.filter((t) => !/chatbot/i.test(t));
-  return (humans.length > 0 ? humans : parts).join(", ");
-}
-
-// Placeholder mientras llega el detalle (descripción/solución/seguimientos).
-function TextoCargando() {
-  return (
-    <div className="space-y-2" aria-busy="true" aria-label="Cargando">
-      <div className="h-4 w-full animate-pulse rounded bg-muted" />
-      <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
-    </div>
-  );
 }
 
 function SortableHead({
@@ -160,7 +128,18 @@ function SortableHead({
   );
 }
 
-export function CasosTable({ casos, canEdit }: { casos: CasoListaConEstado[]; canEdit: boolean }) {
+export function CasosTable({
+  casos,
+  canEdit,
+  idsTareas,
+}: {
+  casos: CasoListaConEstado[];
+  canEdit: boolean;
+  // id_tarea de las tareas del proveedor que existen (sin filtros). Solo se
+  // pasa a administradores: sin esto no hay pestaña "Caso proveedor" ni se
+  // pide ningún dato de tareas.
+  idsTareas?: number[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -168,58 +147,35 @@ export function CasosTable({ casos, canEdit }: { casos: CasoListaConEstado[]; ca
   const [rows, setRows] = useState(casos);
   const [isPending, startTransition] = useTransition();
   const [casoDetalle, setCasoDetalle] = useState<CasoListaConEstado | null>(null);
-  // Textos largos bajo demanda, cacheados por id. El ref guarda el cache y
-  // setDetalleListo fuerza el render cuando llega una respuesta.
+  // Textos largos bajo demanda, cacheados por id (los llenan los componentes de
+  // detalle). Un segundo cache guarda la tarea emparejada, por id_tarea.
   const detallesRef = useRef(new Map<string, CasoDetalle>());
-  const [, setDetalleListo] = useState(0);
-  const [detalleErrorId, setDetalleErrorId] = useState<string | null>(null);
+  const tareaParRef = useRef(new Map<string, TareaPar | null>());
   const casoDetalleId = casoDetalle?.id ?? null;
   const casoDetalleIdRef = useRef<string | null>(null);
   casoDetalleIdRef.current = casoDetalleId;
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const compact = !!searchParams.get("compact");
-  const [descExpanded, setDescExpanded] = useState(false);
-  const [solExpanded, setSolExpanded] = useState(false);
+
+  // Solo admins reciben ids de tareas: para el resto el set queda vacío.
+  const tareasExistentes = useMemo(() => new Set(idsTareas ?? []), [idsTareas]);
+  // id_tarea del par de un caso, o null si no tiene (o el usuario no es admin).
+  function parDe(caso: CasoListaConEstado): number | null {
+    if (!canEdit) return null;
+    const idTarea = idTareaDeReferencia(caso.caso_escalado_proveedor);
+    return idTarea !== null && tareasExistentes.has(idTarea) ? idTarea : null;
+  }
+  const idTareaPar = casoDetalle ? parDe(casoDetalle) : null;
+  const idTareaParRef = useRef<number | null>(null);
+  idTareaParRef.current = idTareaPar;
 
   useEffect(() => {
     setRows(casos);
     setSelectedIds(new Set());
-    // Tras un refresh (p. ej. reimport) los textos cacheados pueden estar viejos;
-    // el del caso abierto se conserva: editar tipo/escalado desde el diálogo
-    // dispara este refresh y, sin esto, quedaría el placeholder de carga para siempre.
-    const abierto = casoDetalleIdRef.current;
-    const vigente = abierto ? detallesRef.current.get(abierto) : undefined;
-    detallesRef.current.clear();
-    if (abierto && vigente) detallesRef.current.set(abierto, vigente);
+    limpiarCacheSalvo(detallesRef.current, casoDetalleIdRef.current);
+    const par = idTareaParRef.current;
+    limpiarCacheSalvo(tareaParRef.current, par === null ? null : String(par));
   }, [casos]);
-
-  useEffect(() => {
-    if (!casoDetalleId) return;
-    setDetalleErrorId(null);
-    if (detallesRef.current.has(casoDetalleId)) return;
-
-    // Si el usuario abre otro caso antes de que responda, se descarta el estado
-    // de esta respuesta (el cache sí se llena, así reabrir es instantáneo).
-    let cancelado = false;
-    getCasoDetalle(casoDetalleId)
-      .then((detalle) => {
-        detallesRef.current.set(casoDetalleId, detalle);
-        if (!cancelado) setDetalleListo((n) => n + 1);
-      })
-      .catch((err) => {
-        if (cancelado) return;
-        setDetalleErrorId(casoDetalleId);
-        toast.error(err instanceof Error ? err.message : "Error al cargar el detalle del caso");
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, [casoDetalleId]);
-
-  useEffect(() => {
-    setDescExpanded(false);
-    setSolExpanded(false);
-  }, [casoDetalle]);
 
   const orderByParam = searchParams.get("orderBy");
   const orderBy: SortableColumn = (SORTABLE_COLUMNS as readonly string[]).includes(orderByParam ?? "")
@@ -259,6 +215,21 @@ export function CasosTable({ casos, canEdit }: { casos: CasoListaConEstado[]; ca
         toast.success(tipo ? `Marcados como ${tipo}` : "Tipo eliminado");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Error al actualizar");
+      }
+    });
+  }
+
+  function handleTipoDetalle(tipo: string | null) {
+    if (!casoDetalle) return;
+    const id = casoDetalle.id;
+    setCasoDetalle((prev) => (prev ? { ...prev, tipo } : prev));
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, tipo } : r)));
+    startTransition(async () => {
+      try {
+        await updateCasosTipo([id], tipo);
+        toast.success("Tipo actualizado");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Error");
       }
     });
   }
@@ -444,158 +415,47 @@ export function CasosTable({ casos, canEdit }: { casos: CasoListaConEstado[]; ca
     </div>
 
       <Dialog open={Boolean(casoDetalle)} onOpenChange={(open) => { if (!open) setCasoDetalle(null); }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className={cn("max-h-[85vh] overflow-y-auto", idTareaPar !== null ? "max-w-3xl" : "max-w-2xl")}>
           <DialogHeader>
             <DialogTitle className="text-base font-semibold leading-snug">
-              {casoDetalle?.titulo ?? "Caso"}
+              {casoDetalle && idTareaPar !== null
+                ? `Tarea ${idTareaPar} · Caso GLPI ${casoDetalle.id_glpi}`
+                : (casoDetalle?.titulo ?? "Caso")}
             </DialogTitle>
           </DialogHeader>
-          {casoDetalle && (() => {
-            const detalle = detallesRef.current.get(casoDetalle.id);
-            const cargando = !detalle && detalleErrorId !== casoDetalle.id;
-            return (
-            <div className="space-y-4 text-sm">
-              {/* Sección: Identificación */}
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificación</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                  <div><span className="text-xs text-muted-foreground">ID GLPI</span><p className="font-mono font-medium">{casoDetalle.id_glpi}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Estado</span><p>{casoDetalle.estado_interno}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Categoría</span><p>{casoDetalle.categoria ?? "—"}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Urgencia</span><p>{casoDetalle.urgencia ?? "—"}</p></div>
-                  {canEdit && (
-                    <div className="col-span-2">
-                      <span className="text-xs text-muted-foreground">Tipo</span>
-                      <Select
-                        value={casoDetalle.tipo ?? "sin_clasificar"}
-                        onValueChange={(v) => {
-                          const tipo = v === "sin_clasificar" ? null : v;
-                          setCasoDetalle((prev) => prev ? { ...prev, tipo } : prev);
-                          setRows((prev) => prev.map((r) => r.id === casoDetalle.id ? { ...r, tipo } : r));
-                          startTransition(async () => {
-                            try {
-                              await updateCasosTipo([casoDetalle.id], tipo);
-                              toast.success("Tipo actualizado");
-                            } catch (err) {
-                              toast.error(err instanceof Error ? err.message : "Error");
-                            }
-                          });
-                        }}
-                      >
-                        <SelectTrigger className="mt-1 h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
-                          <SelectItem value="Requerimiento">Requerimiento</SelectItem>
-                          <SelectItem value="Incidencia">Incidencia</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border-t" />
-
-              {/* Sección: Partes */}
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Partes</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                  <div><span className="text-xs text-muted-foreground">Solicitante</span><p>{casoDetalle.solicitante ?? "—"}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Técnico</span><p>{filterBotTecnicos(casoDetalle.tecnico_asignado)}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Ubicación</span><p>{casoDetalle.ubicacion ?? "—"}</p></div>
-                </div>
-              </div>
-
-              <div className="border-t" />
-
-              {/* Sección: Tiempos y escalamiento */}
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tiempos y escalamiento</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                  <div><span className="text-xs text-muted-foreground">F. Apertura</span><p>{formatFecha(casoDetalle.fecha_apertura)}</p></div>
-                  <div><span className="text-xs text-muted-foreground">F. Cierre</span><p>{formatFecha(casoDetalle.fecha_cierre)}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Caso proveedor</span><p className="font-mono">{casoDetalle.caso_escalado_proveedor ?? "—"}</p></div>
-                  <div><span className="text-xs text-muted-foreground">Estado proveedor</span><p>{casoDetalle.estado_proveedor_real}</p></div>
-                </div>
-              </div>
-
-              <div className="border-t" />
-
-              {/* Sección: Descripción */}
-              <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Descripción</p>
-                {cargando ? (
-                  <TextoCargando />
-                ) : detalle?.descripcion ? (
-                  <>
-                    <div className={cn("rounded-md bg-muted/40 px-3 py-2 whitespace-pre-wrap leading-relaxed", !descExpanded && "line-clamp-3")}>
-                      {detalle.descripcion}
-                    </div>
-                    {detalle.descripcion.length > 200 && (
-                      <button
-                        type="button"
-                        onClick={() => setDescExpanded(!descExpanded)}
-                        className="mt-1 text-xs text-primary hover:underline"
-                      >
-                        {descExpanded ? "Ver menos ↑" : "Ver más ↓"}
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-muted-foreground">—</p>
-                )}
-              </div>
-
-              <div className="border-t" />
-
-              {/* Sección: Solución */}
-              <div>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Solución / Respuesta</p>
-                {cargando ? (
-                  <TextoCargando />
-                ) : detalle?.solucion ? (
-                  <>
-                    <div className={cn("rounded-md bg-muted/40 px-3 py-2 whitespace-pre-wrap leading-relaxed", !solExpanded && "line-clamp-3")}>
-                      {detalle.solucion}
-                    </div>
-                    {detalle.solucion.length > 200 && (
-                      <button
-                        type="button"
-                        onClick={() => setSolExpanded(!solExpanded)}
-                        className="mt-1 text-xs text-primary hover:underline"
-                      >
-                        {solExpanded ? "Ver menos ↑" : "Ver más ↓"}
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-muted-foreground">— Sin solución registrada</p>
-                )}
-              </div>
-
-              {/* Sección: Avance hasta la fecha — solo en casos no cerrados con seguimientos */}
-              {casoDetalle.estado_interno !== "Cerrado" && (cargando || detalle?.seguimientos) && (
-                <>
-                  <div className="border-t" />
-                  <div>
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Avance hasta la fecha
-                    </p>
-                    {cargando ? (
-                      <TextoCargando />
-                    ) : (
-                      <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 whitespace-pre-wrap leading-relaxed text-sm dark:bg-amber-950/20 dark:border-amber-800">
-                        {detalle?.seguimientos}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            );
-          })()}
+          {casoDetalle && (
+            idTareaPar !== null ? (
+              // Con par: pestañas. key = caso, para que el estado de pestañas no se arrastre entre casos.
+              <ParDetalleTabs
+                key={casoDetalle.id}
+                inicial="glpi"
+                glpi={
+                  <CasoGlpiDetalle
+                    caso={casoDetalle}
+                    canEdit={canEdit}
+                    cache={detallesRef.current}
+                    onTipoChange={handleTipoDetalle}
+                    conTitulo
+                  />
+                }
+                proveedor={
+                  <TareaDePar
+                    idTarea={idTareaPar}
+                    cache={tareaParRef.current}
+                    casoGlpi={{ id_glpi: casoDetalle.id_glpi, titulo: casoDetalle.titulo }}
+                    conTitulo
+                  />
+                }
+              />
+            ) : (
+              <CasoGlpiDetalle
+                caso={casoDetalle}
+                canEdit={canEdit}
+                cache={detallesRef.current}
+                onTipoChange={handleTipoDetalle}
+              />
+            )
+          )}
         </DialogContent>
       </Dialog>
 

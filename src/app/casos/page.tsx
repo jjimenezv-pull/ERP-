@@ -120,6 +120,9 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] =
     await Promise.all([getCurrentProfile(), query, cargarMapaEstados()]);
   const canEdit = profile?.role === "admin";
+  // Solo admins reciben ids de tareas (habilitan la pestaña "Caso proveedor"). Se
+  // reutiliza el mapa de estados, que ya trae todas las tareas: sin consulta extra.
+  const idsTareas = canEdit ? Array.from(mapa.keys()) : undefined;
 
   if (error || errorMapa) {
     return (
@@ -157,7 +160,7 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
 
       <CasosFilters estadosProveedor={estadosProveedor} />
 
-      <CasosTable casos={casos} canEdit={canEdit} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}
