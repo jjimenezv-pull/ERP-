@@ -4,8 +4,30 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-current-profile";
 import type { ParsedTareaProveedor } from "@/lib/proveedor/parse-tareas";
+import type { TareaDetalle } from "@/lib/proveedor/tareas";
 
 const CHUNK_SIZE = 500;
+
+function soloCamposImportables(r: ParsedTareaProveedor): ParsedTareaProveedor {
+  return {
+    id_tarea: r.id_tarea,
+    proyecto: r.proyecto,
+    autor: r.autor,
+    tipo_tarea: r.tipo_tarea,
+    prioridad: r.prioridad,
+    fecha_inicio: r.fecha_inicio,
+    fecha_fin: r.fecha_fin,
+    estado: r.estado,
+    asunto: r.asunto,
+    asignatario: r.asignatario,
+    porcentaje_realizado: r.porcentaje_realizado,
+    tipo_facturacion: r.tipo_facturacion,
+    ultima_actualizacion: r.ultima_actualizacion,
+    descripcion: r.descripcion,
+    last_comments: r.last_comments,
+    fecha_ultima_respuesta: r.fecha_ultima_respuesta,
+  };
+}
 
 export async function importTareasProveedor(
   rows: ParsedTareaProveedor[]
@@ -33,8 +55,9 @@ export async function importTareasProveedor(
   const actualizados = rows.length - nuevos;
 
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-    // ParsedTareaProveedor no incluye tipo: el upsert nunca sobreescribe la clasificación ERP.
-    const chunk = rows.slice(i, i + CHUNK_SIZE);
+    // Se arma el payload campo por campo (nunca se esparce la fila): `tipo` es
+    // la clasificación hecha en la app y el upsert jamás debe sobreescribirla.
+    const chunk = rows.slice(i, i + CHUNK_SIZE).map(soloCamposImportables);
     const { error } = await supabase.from("casos_proveedor").upsert(chunk, { onConflict: "id_tarea" });
     if (error) {
       throw new Error(error.message);
@@ -57,4 +80,25 @@ export async function updateTareasTipo(ids: string[], tipo: string | null) {
   }
 
   revalidatePath("/proveedor");
+}
+
+// Textos largos que la lista no envía. La sección de tareas es solo para
+// administradores, por eso requireAdmin.
+export async function getTareaDetalle(id: string): Promise<TareaDetalle> {
+  await requireAdmin();
+
+  const supabase = createServerClient();
+  const { data, error } = await supabase
+    .from("casos_proveedor")
+    .select("descripcion, last_comments")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("Tarea no encontrada.");
+  }
+  return data;
 }

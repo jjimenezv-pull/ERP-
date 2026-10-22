@@ -78,6 +78,12 @@ export type Database = {
           actualizado_por: string | null;
           estado: string | null;
           tipo: string | null;
+          tipo_tarea: string | null;
+          // timestamp sin zona horaria (hora local del export del proveedor)
+          ultima_actualizacion: string | null;
+          fecha_ultima_respuesta: string | null;
+          descripcion: string | null;
+          last_comments: string | null;
           created_at: string;
           updated_at: string;
         };

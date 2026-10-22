@@ -1,4 +1,4 @@
-import type { CasoProveedor } from "@/lib/supabase/types";
+import type { TareaLista } from "@/lib/proveedor/tareas";
 
 function KpiCard({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
@@ -10,7 +10,7 @@ function KpiCard({ label, value, sub }: { label: string; value: number | string;
   );
 }
 
-export function ProveedorKpiCards({ tareas }: { tareas: CasoProveedor[] }) {
+export function ProveedorKpiCards({ tareas }: { tareas: TareaLista[] }) {
   if (tareas.length === 0) return null;
 
   const total = tareas.length;

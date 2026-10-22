@@ -7,6 +7,7 @@ import { TareasProveedorTable } from "@/components/proveedor/tareas-proveedor-ta
 import { ProveedorKpiCards } from "@/components/proveedor/proveedor-kpi-cards";
 import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
+import { COLUMNAS_TAREAS_LISTA, type TareaLista } from "@/lib/proveedor/tareas";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -120,7 +121,10 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
       getCurrentProfile(),
       query,
       cargarMapaEstados(),
-      supabase.from("casos_proveedor").select("*").order("fecha_inicio", { ascending: false }),
+      supabase
+        .from("casos_proveedor")
+        .select(COLUMNAS_TAREAS_LISTA)
+        .order("fecha_inicio", { ascending: false }),
     ]);
   const canEdit = profile?.role === "admin";
 
@@ -138,7 +142,11 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
   });
 
-  const tareasProveedor = canEdit ? (tareasRes.data ?? []) : [];
+  // Solo admins reciben las tareas. Sin los textos largos (se piden al abrir el detalle).
+  const tareasProveedor: TareaLista[] = canEdit ? (tareasRes.data ?? []) : [];
+  // "Hoy" se calcula una sola vez aquí, en hora de Bogotá: el servidor corre en UTC y
+  // new Date() en el cliente descuadraría los días por la noche y la hidratación.
+  const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(new Date());
 
   return (
     <div className="space-y-4">
@@ -164,7 +172,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
             <ImportTareasDialog />
           </div>
           <ProveedorKpiCards tareas={tareasProveedor} />
-          <TareasProveedorTable tareas={tareasProveedor} casosGlpi={casos} canEdit={canEdit} />
+          <TareasProveedorTable tareas={tareasProveedor} casosGlpi={casos} canEdit={canEdit} hoy={hoy} />
         </section>
       )}
     </div>
