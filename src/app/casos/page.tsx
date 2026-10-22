@@ -5,6 +5,7 @@ import { CasosTable } from "@/components/casos/casos-table";
 import { ImportDialog } from "@/components/casos/import-dialog";
 import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
+import { hoyEnBogota } from "@/lib/proveedor/tareas";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -160,7 +161,7 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
 
       <CasosFilters estadosProveedor={estadosProveedor} />
 
-      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoyEnBogota()} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}

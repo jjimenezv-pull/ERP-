@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, isValid, parseISO } from "date-fns";
 
 export function formatFecha(value: string | null) {
   if (!value) return "—";
@@ -9,6 +9,27 @@ export function formatFecha(value: string | null) {
   } catch {
     return value;
   }
+}
+
+// Días calendario entre dos fechas yyyy-MM-dd; nunca negativo, null si falta alguna.
+export function diasEntre(desde: string | null, hasta: string | null): number | null {
+  if (!desde || !hasta) return null;
+  const a = parseISO(desde);
+  const b = parseISO(hasta);
+  if (!isValid(a) || !isValid(b)) return null;
+  return Math.max(0, differenceInCalendarDays(b, a));
+}
+
+// Días de un caso GLPI: abiertos -> desde la apertura hasta hoy (`hoy` viene del
+// servidor en hora de Bogotá); cerrados -> de la apertura al cierre, para que no
+// sigan creciendo. Un cerrado sin fecha de cierre no tiene cifra confiable.
+export function diasCaso(
+  hoy: string,
+  caso: { estado_interno: string; fecha_apertura: string | null; fecha_cierre: string | null }
+): { dias: number | null; cerrado: boolean } {
+  const cerrado = caso.estado_interno === "Cerrado";
+  if (cerrado) return { dias: diasEntre(caso.fecha_apertura, caso.fecha_cierre), cerrado };
+  return { dias: diasEntre(caso.fecha_apertura, hoy), cerrado };
 }
 
 export function formatFechaHora(value: string | null) {

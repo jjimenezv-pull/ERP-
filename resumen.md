@@ -253,6 +253,11 @@ El proveedor cambió el export de tareas (`Tareas_5.csv`, 15 columnas: ID de tar
 - **Código:** detalles extraídos a `caso-glpi-detalle.tsx` y `tarea-detalle.tsx`, con pestañas en `par-detalle-tabs.tsx` y un hook de carga bajo demanda (`src/lib/use-detalle-bajo-demanda.ts`: caché por id, ignora respuestas tardías, toast de error). Acciones nuevas **solo admin**: `getCasoGlpiPorTarea` y `getTareaPorIdTarea`. `updateCasosTipo` ahora también revalida `/proveedor`.
 - **Pendiente de probar en pantalla** (el subagente no pudo abrir un navegador): diseño en ancho de teléfono/laptop, cambio de pestañas y que la edición optimista del tipo persista en la pestaña del otro lado.
 
+## Actualización 2026-10-21 (continuación 2) — Columna "Días" en la tabla de casos GLPI
+
+Nueva columna **Días** (después de F. Cierre) en `casos-table.tsx`, visible en `/casos` y en la tabla de casos de `/proveedor`: en casos **abiertos** son los días desde la apertura hasta hoy; en **cerrados**, los días de la apertura al cierre (así no siguen creciendo; en gris). Un cerrado sin fecha de cierre muestra "—". "Hoy" se calcula en el servidor en hora de Bogotá (`hoyEnBogota`) y entra como prop `hoy`. Lógica en `diasCaso`/`diasEntre` (`src/lib/formato.ts`). No es ordenable (es calculada; el orden de esta tabla se hace en el servidor sobre columnas reales).
+**No se agregó "días desde última respuesta" a GLPI:** el export de GLPI no trae esa fecha (solo `seguimientos`, texto libre de correos sin formato de fecha fijo, presente en 53 de 323 casos). Si se quiere, hay que pedir al export una columna de "última actualización".
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).

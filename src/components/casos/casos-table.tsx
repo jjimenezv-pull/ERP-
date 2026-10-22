@@ -27,7 +27,7 @@ import { ParDetalleTabs } from "@/components/proveedor/par-detalle-tabs";
 import { TareaDePar } from "@/components/proveedor/tarea-detalle";
 import type { CasoListaConEstado } from "@/lib/proveedor/cruce";
 import { idTareaDeReferencia, type TareaPar } from "@/lib/proveedor/par";
-import { filterBotTecnicos, formatFecha } from "@/lib/formato";
+import { diasCaso, filterBotTecnicos, formatFecha } from "@/lib/formato";
 import { limpiarCacheSalvo } from "@/lib/use-detalle-bajo-demanda";
 import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
@@ -132,9 +132,12 @@ export function CasosTable({
   casos,
   canEdit,
   idsTareas,
+  hoy,
 }: {
   casos: CasoListaConEstado[];
   canEdit: boolean;
+  // yyyy-MM-dd en hora de Bogotá, calculado en el servidor (ver hoyEnBogota).
+  hoy: string;
   // id_tarea de las tareas del proveedor que existen (sin filtros). Solo se
   // pasa a administradores: sin esto no hay pestaña "Caso proveedor" ni se
   // pide ningún dato de tareas.
@@ -293,6 +296,12 @@ export function CasosTable({
             <SortableHead column="fecha_cierre" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               F. Cierre
             </SortableHead>
+            <TableHead
+              className="text-white"
+              title="Abiertos: días desde la apertura hasta hoy. Cerrados: días de la apertura al cierre."
+            >
+              Días
+            </TableHead>
             <SortableHead column="urgencia" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               Urgencia
             </SortableHead>
@@ -369,6 +378,16 @@ export function CasosTable({
               </TableCell>
               <TableCell>{formatFecha(caso.fecha_apertura)}</TableCell>
               <TableCell>{formatFecha(caso.fecha_cierre)}</TableCell>
+              <TableCell
+                className="tabular-nums"
+                title={diasCaso(hoy, caso).cerrado ? "Días hasta el cierre" : "Días abierto"}
+              >
+                {(() => {
+                  const { dias, cerrado } = diasCaso(hoy, caso);
+                  if (dias === null) return "—";
+                  return <span className={cn(cerrado && "text-muted-foreground")}>{dias}</span>;
+                })()}
+              </TableCell>
               <TableCell>
                 {caso.urgencia ? (
                   <Badge variant="outline" className={cn(URGENCIA_CLASS[caso.urgencia] ?? "")}>
