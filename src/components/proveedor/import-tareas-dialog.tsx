@@ -92,7 +92,7 @@ export function ImportTareasDialog() {
           <DialogDescription>
             Sube el CSV de tareas exportado desde la plataforma del proveedor (incluye Descripción
             y Last comments). Las tareas nuevas se crean y las existentes se actualizan por su ID
-            de tarea; la clasificación Requerimiento/Incidencia/Proyecto se conserva.
+            de tarea; la clasificación por tipo se conserva.
           </DialogDescription>
         </DialogHeader>
 

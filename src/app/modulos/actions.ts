@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-current-profile";
 import { idTareaDeReferencia } from "@/lib/proveedor/par";
+import { esColorValido } from "@/lib/etiquetas";
 
 const NOMBRE_MAX = 60;
 // Máximo de ids por .in(): evita URLs de PostgREST demasiado largas.
@@ -102,6 +103,29 @@ export async function renombrarModulo(id: string, nombre: string): Promise<Resul
 
   revalidatePath("/casos");
   revalidatePath("/proveedor");
+  return {};
+}
+
+// Cambia el color de etiqueta de un módulo (solo admin); la clave debe ser de la paleta.
+export async function cambiarColorModulo(id: string, color: string): Promise<ResultadoModulo> {
+  try {
+    await requireAdmin();
+  } catch (err) {
+    return { error: mensajeAdmin(err) };
+  }
+  if (typeof color !== "string" || !esColorValido(color)) return { error: "Color inválido." };
+
+  const supabase = createServerClient();
+  const { data, error: errorBusca } = await supabase.from("modulos").select("id").eq("id", id).maybeSingle();
+  if (errorBusca) return { error: errorBusca.message };
+  if (!data) return { error: "El módulo ya no existe." };
+
+  const { error } = await supabase.from("modulos").update({ color }).eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/casos");
+  revalidatePath("/proveedor");
+  revalidatePath("/ajustes");
   return {};
 }
 

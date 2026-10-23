@@ -10,13 +10,8 @@ import {
   updateCasosTipo,
   type CasoDetalle,
 } from "@/app/casos/actions";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TipoSelect } from "@/components/etiquetas/tipo-select";
+import type { Tipo } from "@/lib/supabase/types";
 import { TextoCargando } from "@/components/ui/texto-cargando";
 import { filterBotTecnicos, formatFecha } from "@/lib/formato";
 import type { CasoListaConEstado } from "@/lib/proveedor/cruce";
@@ -30,7 +25,8 @@ interface CuerpoProps {
   detalle: CasoDetalle | undefined;
   cargando: boolean;
   canEdit: boolean;
-  onTipoChange: (tipo: string | null) => void;
+  tipos: Tipo[];
+  onTipoChange: (tipoId: string | null) => void;
   modulosCtl: ModulosCtl;
   onModuloChange: (moduloId: string | null) => void;
   // Con pestañas el título del diálogo es el par; el del caso va dentro de su pestaña.
@@ -38,7 +34,7 @@ interface CuerpoProps {
 }
 
 // Cuerpo del detalle de un caso GLPI (sin lógica de carga).
-function CasoGlpiCuerpo({ caso, detalle, cargando, canEdit, onTipoChange, modulosCtl, onModuloChange, conTitulo }: CuerpoProps) {
+function CasoGlpiCuerpo({ caso, detalle, cargando, canEdit, tipos, onTipoChange, modulosCtl, onModuloChange, conTitulo }: CuerpoProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [solExpanded, setSolExpanded] = useState(false);
 
@@ -69,20 +65,7 @@ function CasoGlpiCuerpo({ caso, detalle, cargando, canEdit, onTipoChange, modulo
           {canEdit && (
             <div className="col-span-2">
               <span className="text-xs text-muted-foreground">Tipo</span>
-              <Select
-                value={caso.tipo ?? "sin_clasificar"}
-                onValueChange={(v) => onTipoChange(v === "sin_clasificar" ? null : v)}
-              >
-                <SelectTrigger className="mt-1 h-8 text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
-                  <SelectItem value="Requerimiento">Requerimiento</SelectItem>
-                  <SelectItem value="Incidencia">Incidencia</SelectItem>
-                  <SelectItem value="Proyecto">Proyecto</SelectItem>
-                </SelectContent>
-              </Select>
+              <TipoSelect tipos={tipos} value={caso.tipo_id} onChange={onTipoChange} className="mt-1" />
             </div>
           )}
           <div className="col-span-2">
@@ -207,6 +190,7 @@ export function CasoGlpiDetalle({
   caso,
   canEdit,
   cache,
+  tipos,
   onTipoChange,
   modulosCtl,
   onModuloChange,
@@ -215,7 +199,8 @@ export function CasoGlpiDetalle({
   caso: CasoListaConEstado;
   canEdit: boolean;
   cache: Map<string, CasoDetalle>;
-  onTipoChange: (tipo: string | null) => void;
+  tipos: Tipo[];
+  onTipoChange: (tipoId: string | null) => void;
   modulosCtl: ModulosCtl;
   onModuloChange: (moduloId: string | null) => void;
   conTitulo?: boolean;
@@ -232,6 +217,7 @@ export function CasoGlpiDetalle({
       detalle={detalle}
       cargando={cargando}
       canEdit={canEdit}
+      tipos={tipos}
       onTipoChange={onTipoChange}
       modulosCtl={modulosCtl}
       onModuloChange={onModuloChange}
@@ -246,11 +232,13 @@ export function CasoGlpiDetalle({
 export function CasoGlpiDePar({
   idTarea,
   cache,
+  tipos,
   modulosCtl,
   conTitulo,
 }: {
   idTarea: number;
   cache: Map<string, CasoGlpiPar | null>;
+  tipos: Tipo[];
   modulosCtl: ModulosCtl;
   conTitulo?: boolean;
 }) {
@@ -262,15 +250,15 @@ export function CasoGlpiDePar({
     "Error al cargar el caso GLPI"
   );
 
-  function handleTipo(tipo: string | null) {
+  function handleTipo(tipoId: string | null) {
     if (!par) return;
-    const previo = par.caso.tipo;
+    const previo = par.caso.tipo_id;
     const id = par.caso.id;
-    actualizar(clave, (p) => (p ? { ...p, caso: { ...p.caso, tipo } } : p));
-    updateCasosTipo([id], tipo)
+    actualizar(clave, (p) => (p ? { ...p, caso: { ...p.caso, tipo_id: tipoId } } : p));
+    updateCasosTipo([id], tipoId)
       .then(() => toast.success("Tipo actualizado"))
       .catch((err) => {
-        actualizar(clave, (p) => (p ? { ...p, caso: { ...p.caso, tipo: previo } } : p));
+        actualizar(clave, (p) => (p ? { ...p, caso: { ...p.caso, tipo_id: previo } } : p));
         toast.error(err instanceof Error ? err.message : "Error al actualizar");
       });
   }
@@ -306,6 +294,7 @@ export function CasoGlpiDePar({
       detalle={par.detalle}
       cargando={false}
       canEdit
+      tipos={tipos}
       onTipoChange={handleTipo}
       modulosCtl={modulosCtl}
       onModuloChange={handleModulo}

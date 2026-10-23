@@ -33,10 +33,15 @@ export async function importCasos(
   const actualizados = rows.length - nuevos;
 
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-    // Excluye tipo y caso_escalado_proveedor/estado_proveedor: el upsert nunca sobreescribe
+    // Excluye tipo/tipo_id y caso_escalado_proveedor/estado_proveedor: el upsert nunca sobreescribe
     // clasificaciones ERP asignadas manualmente después del import.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const chunk = rows.slice(i, i + CHUNK_SIZE).map(({ tipo, ...rest }) => rest);
+    /* eslint-disable @typescript-eslint/no-unused-vars */
+    const chunk = rows.slice(i, i + CHUNK_SIZE).map(({ tipo, ...rest }) => {
+      // El parser no emite tipo_id, pero si lo hiciera tampoco debe viajar.
+      const { tipo_id, ...sinTipo } = rest as typeof rest & { tipo_id?: unknown };
+      return sinTipo;
+    });
+    /* eslint-enable @typescript-eslint/no-unused-vars */
     const { error } = await supabase.from("casos").upsert(chunk, { onConflict: "id_glpi" });
     if (error) {
       throw new Error(error.message);

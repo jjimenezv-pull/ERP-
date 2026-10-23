@@ -42,9 +42,11 @@ más otras opciones. Respuestas: arrancar por la fase 1; rangos de días editabl
   (hoy: casos 292 Requerimiento / 31 Incidencia; tareas 19 / 11 / 3 sin clasificar).
 
 ### Paleta de etiquetas
-- 16 colores como tokens `--etiqueta-1..16` (+ `-fg`) en `globals.css`, claro y
-  oscuro, con contraste ≥ 4,5:1. Incluye los tres colores de tipo actuales y los
-  10 de módulo; sustituye a `--modulo-N` y a los hex de `TIPO_CLASS`.
+- Paleta amplia de 30 colores (decisión del usuario: "una gran selección") como
+  tokens `--etiqueta-1..30` (+ `-fg`) en `globals.css`, claro y oscuro, con contraste
+  ≥ 4,5:1, todos en el estilo sólido saturado actual (sin pastel). Incluye los tres
+  colores de tipo actuales y los 10 de módulo; sustituye a `--modulo-N` y a los hex de
+  `TIPO_CLASS`. El selector los muestra en cuadrícula agrupada por tono.
 - `src/lib/etiquetas.ts`: mapa clave → clase literal
   (`border-transparent bg-[var(--etiqueta-N)] text-[var(--etiqueta-N-fg)]`).
   Literales completos, así Tailwind los genera; **no hace falta inyectar CSS en

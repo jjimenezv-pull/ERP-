@@ -14,10 +14,15 @@ Todo badge o etiqueta de color de la app debe verse igual que las columnas Estad
 - Estado: `--status-espera`, `--status-curso`, `--status-cerrado`, `--status-revision` (+ `-foreground`).
 - Urgencia: `--urgency-muy-alta`, `-alta`, `-media`, `-baja`, `-muy-baja` (+ `-fg`).
 - Días: `--dias-1..5` (+ `-fg`); 1-4 apuntan por `var()` a curso, espera, urgencia alta y muy alta; 5 es rojo oscuro propio.
-- Módulo: `--modulo-1..10` (+ `-fg`), elegidos por hash estable del id en `modulo-select.tsx`.
+- Etiquetas (tipos y módulos): `--etiqueta-1..30` (+ `-fg`), paleta cerrada con claves `"1"`..`"30"`. Las clases literales viven en `src/lib/etiquetas.ts` (`claseEtiqueta(clave, fallbackId)`); se pintan con `EtiquetaBadge` y se eligen con `SelectorColor` (`src/components/etiquetas/`). 1..10 = antiguos colores de módulo (fallback por hash del id si el módulo no tiene color), 11..13 = Requerimiento, Incidencia, Proyecto. Ya no existe `--modulo-N`.
 
 ### Añadir un color nuevo
 1. Define `--nombre` y `--nombre-fg` en `:root` y en `.dark` de `globals.css` (si reutiliza uno existente, usa `var()` para heredar el modo oscuro).
 2. Elige un color que no se confunda con Estado/Urgencia/Tipo y verifica el contraste del `-fg`.
 3. Usa la clase literal `border-transparent bg-[var(--nombre)] text-[var(--nombre-fg)]` sobre `<Badge variant="outline">`.
 4. Anótalo en esta lista y en `resumen.md`.
+
+### Añadir un color a la paleta de etiquetas
+1. Define `--etiqueta-31` y `--etiqueta-31-fg` en `:root` y `.dark` de `globals.css` (fg con contraste >= 4,5:1).
+2. En `src/lib/etiquetas.ts`: añade la clase literal completa al mapa `CLASES`, amplía `CLAVES_COLOR` (longitud) y mete la clave en un grupo de `GRUPOS_COLOR`.
+3. No cambies el orden de las claves 1..10: el fallback por hash del id depende de él.

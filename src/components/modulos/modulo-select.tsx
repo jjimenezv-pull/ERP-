@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronsUpDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { contarUsoModulo, crearModulo, eliminarModulo, renombrarModulo } from "@/app/modulos/actions";
-import { Badge } from "@/components/ui/badge";
+import { EtiquetaBadge } from "@/components/etiquetas/etiqueta-badge";
 import {
   Dialog,
   DialogContent,
@@ -14,45 +14,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { claseEtiqueta } from "@/lib/etiquetas";
 import { cn } from "@/lib/utils";
 
-export type ModuloOpcion = { id: string; nombre: string };
+// `color`: clave de paleta (opcional hasta que el tipo de BD lo traiga; null = color por hash del id).
+export type ModuloOpcion = { id: string; nombre: string; color?: string | null };
 
-// Paleta de etiquetas de módulo: 10 colores sólidos como los de Estado/Urgencia/Tipo, con
-// tokens --modulo-N / --modulo-N-fg en globals.css (claro y oscuro). Clases literales
-// completas para que Tailwind las genere. El color sale de un hash del id, no del nombre:
-// renombrar no lo cambia.
-const PALETA_MODULO: { badge: string; punto: string }[] = [
-  { badge: "border-transparent bg-[var(--modulo-1)] text-[var(--modulo-1-fg)]", punto: "bg-[var(--modulo-1)]" },
-  { badge: "border-transparent bg-[var(--modulo-2)] text-[var(--modulo-2-fg)]", punto: "bg-[var(--modulo-2)]" },
-  { badge: "border-transparent bg-[var(--modulo-3)] text-[var(--modulo-3-fg)]", punto: "bg-[var(--modulo-3)]" },
-  { badge: "border-transparent bg-[var(--modulo-4)] text-[var(--modulo-4-fg)]", punto: "bg-[var(--modulo-4)]" },
-  { badge: "border-transparent bg-[var(--modulo-5)] text-[var(--modulo-5-fg)]", punto: "bg-[var(--modulo-5)]" },
-  { badge: "border-transparent bg-[var(--modulo-6)] text-[var(--modulo-6-fg)]", punto: "bg-[var(--modulo-6)]" },
-  { badge: "border-transparent bg-[var(--modulo-7)] text-[var(--modulo-7-fg)]", punto: "bg-[var(--modulo-7)]" },
-  { badge: "border-transparent bg-[var(--modulo-8)] text-[var(--modulo-8-fg)]", punto: "bg-[var(--modulo-8)]" },
-  { badge: "border-transparent bg-[var(--modulo-9)] text-[var(--modulo-9-fg)]", punto: "bg-[var(--modulo-9)]" },
-  { badge: "border-transparent bg-[var(--modulo-10)] text-[var(--modulo-10-fg)]", punto: "bg-[var(--modulo-10)]" },
-];
-
-function entradaPaleta(id: string) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return PALETA_MODULO[h % PALETA_MODULO.length];
-}
-
-// Clases de color (borde/fondo/texto; el modo oscuro lo resuelven los tokens) del módulo.
-export function claseModulo(id: string): string {
-  return entradaPaleta(id).badge;
-}
-
-// Etiqueta de módulo con su color.
-export function ModuloBadge({ id, nombre, className }: { id: string; nombre: string; className?: string }) {
-  return (
-    <Badge variant="outline" className={cn("max-w-full", claseModulo(id), className)}>
-      <span className="truncate">{nombre}</span>
-    </Badge>
-  );
+// Etiqueta de módulo con su color. `color` es la clave de paleta del módulo; sin ella
+// se usa el hash estable del id (los módulos existentes conservan su color).
+export function ModuloBadge({
+  id,
+  nombre,
+  color,
+  className,
+}: {
+  id: string;
+  nombre: string;
+  color?: string | null;
+  className?: string;
+}) {
+  return <EtiquetaBadge nombre={nombre} clave={color} fallbackId={id} className={className} />;
 }
 
 // Catálogo de módulos del cliente: arranca con lo que cargó el servidor y suma
@@ -69,6 +50,7 @@ export function useModulos(
   }, [inicial]);
 
   const nombrePorId = useMemo(() => new Map(modulos.map((m) => [m.id, m.nombre])), [modulos]);
+  const colorPorId = useMemo(() => new Map(modulos.map((m) => [m.id, m.color ?? null])), [modulos]);
 
   // Crea (o recupera, si ya existe) un módulo. Devuelve su id, o null si falló.
   async function crear(nombre: string): Promise<string | null> {
@@ -114,7 +96,7 @@ export function useModulos(
     return true;
   }
 
-  return { modulos, nombrePorId, crear, renombrar, eliminar };
+  return { modulos, nombrePorId, colorPorId, crear, renombrar, eliminar };
 }
 
 export type ModulosCtl = ReturnType<typeof useModulos>;
@@ -217,7 +199,7 @@ export function ModuloSelect({
             )}
           >
             {!etiqueta && actual && value ? (
-              <ModuloBadge id={value} nombre={actual} />
+              <ModuloBadge id={value} nombre={actual} color={ctl.colorPorId.get(value)} />
             ) : (
               <span className={cn("truncate", !etiqueta && "text-muted-foreground")}>{etiqueta ?? "Sin módulo"}</span>
             )}
@@ -293,7 +275,7 @@ export function ModuloSelect({
                     className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left"
                   >
                     <Check className={cn("h-3.5 w-3.5 shrink-0", value === m.id ? "opacity-100" : "opacity-0")} />
-                    <span className={cn("h-2 w-2 shrink-0 rounded-full", entradaPaleta(m.id).punto)} />
+                    <span className={cn("h-2 w-2 shrink-0 rounded-full", claseEtiqueta(m.color ?? null, m.id))} />
                     <span className="truncate">{m.nombre}</span>
                   </button>
                   <button

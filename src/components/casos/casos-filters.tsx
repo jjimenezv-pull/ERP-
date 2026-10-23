@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DateRangePicker } from "@/components/date-range-picker";
+import type { Tipo } from "@/lib/supabase/types";
 import { ESTADO_NO_ESCALADO, ESTADO_SIN_MATCH } from "@/lib/proveedor/cruce";
 
 const ESTADOS_INTERNOS = ["En curso (asignada)", "Cerrado", "En espera"] as const;
@@ -32,7 +33,7 @@ const COLUMNAS_BUSCABLES = [
   { value: "ubicacion", label: "Ubicación" },
 ] as const;
 
-export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] }) {
+export function CasosFilters({ estadosProveedor, tipos }: { estadosProveedor: string[]; tipos: Tipo[] }) {
   const opcionesEstadoProveedor = [ESTADO_NO_ESCALADO, ESTADO_SIN_MATCH, ...estadosProveedor];
   const router = useRouter();
   const pathname = usePathname();
@@ -58,7 +59,11 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
   const desdeCierre = searchParams.get("desde_cierre");
   const hastaCierre = searchParams.get("hasta_cierre");
   const urgencia = searchParams.get("urgencia") ?? "todas";
-  const tipo = searchParams.get("tipo") ?? "todos";
+  // Valor del searchParam: id del tipo o "sin_clasificar". Uno viejo o de un tipo borrado
+  // (la página lo ignora) se muestra como "todos" para no dejar el select en blanco.
+  const tipoParam = searchParams.get("tipo");
+  const tipo =
+    tipoParam === "sin_clasificar" || (tipoParam && tipos.some((t) => t.id === tipoParam)) ? tipoParam! : "todos";
   const columna = searchParams.get("columna") ?? "todas";
   const qParam = searchParams.get("q") ?? "";
 
@@ -169,9 +174,13 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="todos">Todos los tipos</SelectItem>
-          <SelectItem value="Requerimiento">Requerimiento</SelectItem>
-          <SelectItem value="Incidencia">Incidencia</SelectItem>
-          <SelectItem value="Proyecto">Proyecto</SelectItem>
+          {/* Incluye los inactivos: sirven para filtrar casos históricos. */}
+          {tipos.map((t) => (
+            <SelectItem key={t.id} value={t.id}>
+              {t.nombre}
+              {!t.activo && " (inactivo)"}
+            </SelectItem>
+          ))}
           <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
         </SelectContent>
       </Select>

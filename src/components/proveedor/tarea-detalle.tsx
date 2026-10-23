@@ -11,18 +11,14 @@ import {
 } from "@/app/proveedor/import-actions";
 import { Badge } from "@/components/ui/badge";
 import { DiasBadge } from "@/components/dias-badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TipoSelect } from "@/components/etiquetas/tipo-select";
 import { TextoCargando } from "@/components/ui/texto-cargando";
 import { formatFecha, formatFechaHora } from "@/lib/formato";
+import { nombreAutor } from "@/lib/proveedor/autores";
 import { parseComentarios } from "@/lib/proveedor/comentarios";
 import type { TareaPar } from "@/lib/proveedor/par";
 import { diasDesde, type TareaDetalle as TareaTextos, type TareaLista } from "@/lib/proveedor/tareas";
+import type { Tipo } from "@/lib/supabase/types";
 import { useDetalleBajoDemanda } from "@/lib/use-detalle-bajo-demanda";
 import { cn } from "@/lib/utils";
 
@@ -100,11 +96,21 @@ function ComentariosLista({ texto }: { texto: string }) {
           )}
         >
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs">
-            {c.autor && (
-              <span className={cn("rounded bg-muted px-1.5 py-0.5 font-mono font-semibold", !c.automatico && "text-foreground")}>
-                {c.autor}
-              </span>
-            )}
+            {c.autor && (() => {
+              const nombre = nombreAutor(c.autor);
+              return (
+                <span
+                  title={nombre ? c.autor : undefined}
+                  className={cn(
+                    "rounded bg-muted px-1.5 py-0.5 font-semibold",
+                    !nombre && "font-mono",
+                    !c.automatico && "text-foreground"
+                  )}
+                >
+                  {nombre ?? c.autor}
+                </span>
+              );
+            })()}
             {c.fecha && <span className="text-muted-foreground">{formatFecha(c.fecha)}</span>}
             {c.automatico && (
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Automático</span>
@@ -136,7 +142,8 @@ interface CuerpoProps {
   canEdit: boolean;
   // Deshabilita el select mientras se guarda un cambio de tipo.
   guardando?: boolean;
-  onTipoChange: (tipo: string | null) => void;
+  tipos: Tipo[];
+  onTipoChange: (tipoId: string | null) => void;
   modulosCtl: ModulosCtl;
   onModuloChange: (moduloId: string | null) => void;
   // Caso GLPI emparejado (para el campo "Caso GLPI relacionado"), si hay.
@@ -146,7 +153,7 @@ interface CuerpoProps {
 }
 
 // Cuerpo del detalle de una tarea del proveedor (sin lógica de carga).
-function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, onTipoChange, modulosCtl, onModuloChange, casoGlpi, conTitulo }: CuerpoProps) {
+function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, tipos, onTipoChange, modulosCtl, onModuloChange, casoGlpi, conTitulo }: CuerpoProps) {
   const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
@@ -221,21 +228,13 @@ function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, onTipoChang
           {/* Sección: Tipo */}
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tipo</p>
-            <Select
-              value={tarea.tipo ?? "sin_clasificar"}
+            <TipoSelect
+              tipos={tipos}
+              value={tarea.tipo_id}
               disabled={guardando}
-              onValueChange={(v) => onTipoChange(v === "sin_clasificar" ? null : v)}
-            >
-              <SelectTrigger className="h-8 max-w-xs text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
-                <SelectItem value="Requerimiento">Requerimiento</SelectItem>
-                <SelectItem value="Incidencia">Incidencia</SelectItem>
-                <SelectItem value="Proyecto">Proyecto</SelectItem>
-              </SelectContent>
-            </Select>
+              onChange={onTipoChange}
+              className="max-w-xs"
+            />
           </div>
 
           {/* Sección: Módulo */}
@@ -308,6 +307,7 @@ export function TareaDetalle({
   cache,
   canEdit,
   guardando,
+  tipos,
   onTipoChange,
   modulosCtl,
   onModuloChange,
@@ -318,7 +318,8 @@ export function TareaDetalle({
   cache: Map<string, TareaTextos>;
   canEdit: boolean;
   guardando?: boolean;
-  onTipoChange: (tipo: string | null) => void;
+  tipos: Tipo[];
+  onTipoChange: (tipoId: string | null) => void;
   modulosCtl: ModulosCtl;
   onModuloChange: (moduloId: string | null) => void;
   casoGlpi: { id_glpi: number; titulo: string | null } | null;
@@ -337,6 +338,7 @@ export function TareaDetalle({
       cargando={cargando}
       canEdit={canEdit}
       guardando={guardando}
+      tipos={tipos}
       onTipoChange={onTipoChange}
       modulosCtl={modulosCtl}
       onModuloChange={onModuloChange}
@@ -351,12 +353,14 @@ export function TareaDetalle({
 export function TareaDePar({
   idTarea,
   cache,
+  tipos,
   modulosCtl,
   casoGlpi,
   conTitulo,
 }: {
   idTarea: number;
   cache: Map<string, TareaPar | null>;
+  tipos: Tipo[];
   modulosCtl: ModulosCtl;
   casoGlpi: { id_glpi: number; titulo: string | null } | null;
   conTitulo?: boolean;
@@ -371,16 +375,16 @@ export function TareaDePar({
   );
   const fila = useMemo(() => (par ? conDias(par.tarea, par.hoy) : null), [par]);
 
-  function handleTipo(tipo: string | null) {
+  function handleTipo(tipoId: string | null) {
     if (!par) return;
-    const previo = par.tarea.tipo;
+    const previo = par.tarea.tipo_id;
     const id = par.tarea.id;
-    actualizar(clave, (p) => (p ? { ...p, tarea: { ...p.tarea, tipo } } : p));
+    actualizar(clave, (p) => (p ? { ...p, tarea: { ...p.tarea, tipo_id: tipoId } } : p));
     setGuardando(true);
-    updateTareasTipo([id], tipo)
+    updateTareasTipo([id], tipoId)
       .then(() => toast.success("Tipo actualizado"))
       .catch((err) => {
-        actualizar(clave, (p) => (p ? { ...p, tarea: { ...p.tarea, tipo: previo } } : p));
+        actualizar(clave, (p) => (p ? { ...p, tarea: { ...p.tarea, tipo_id: previo } } : p));
         toast.error(err instanceof Error ? err.message : "Error al actualizar");
       })
       .finally(() => setGuardando(false));
@@ -421,6 +425,7 @@ export function TareaDePar({
       cargando={false}
       canEdit
       guardando={guardando}
+      tipos={tipos}
       onTipoChange={handleTipo}
       modulosCtl={modulosCtl}
       onModuloChange={handleModulo}

@@ -23,7 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { EtiquetaBadge } from "@/components/etiquetas/etiqueta-badge";
+import { TipoBulkSelect } from "@/components/etiquetas/tipo-select";
 import { DiasBadge } from "@/components/dias-badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -49,15 +50,10 @@ import {
 } from "@/components/proveedor/tarea-detalle";
 import { formatFecha, formatFechaHora } from "@/lib/formato";
 import { cn } from "@/lib/utils";
+import type { Tipo } from "@/lib/supabase/types";
 import type { CasoGlpiPar, ParGlpi } from "@/lib/proveedor/par";
 import type { TareaDetalle as TareaTextos, TareaLista } from "@/lib/proveedor/tareas";
 import { limpiarCacheSalvo } from "@/lib/use-detalle-bajo-demanda";
-
-const TIPO_CLASS: Record<string, string> = {
-  "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
-  "Incidencia":    "border-transparent bg-[#ea580c] text-white",
-  "Proyecto":      "border-transparent bg-[#0f766e] text-white",
-};
 
 const ESTADOS_TAREA = ["En Desarrollo", "En Revision", "Pendiente Cliente", "Cerrada", "Caducada"] as const;
 
@@ -139,10 +135,13 @@ export function TareasProveedorTable({
   canEdit = false,
   hoy,
   modulos: modulosIniciales,
+  tipos,
 }: {
   tareas: TareaLista[];
   // Catálogo de módulos (una lectura por página, ver cargarModulos).
   modulos: ModuloOpcion[];
+  // Catálogo de tipos (activos e inactivos; ver cargarTipos).
+  tipos: Tipo[];
   // Casos GLPI que referencian una tarea, SIN los filtros de la página: así la
   // columna "Caso GLPI" y la pestaña del detalle no dependen de lo filtrado arriba.
   paresGlpi?: ParGlpi[];
@@ -188,6 +187,8 @@ export function TareasProveedorTable({
   // id_tarea -> primer caso GLPI que la referencia.
   const casoPorTarea = useMemo(() => new Map(paresGlpi.map((p) => [p.id_tarea, p])), [paresGlpi]);
 
+  const tipoPorId = useMemo(() => new Map(tipos.map((t) => [t.id, t])), [tipos]);
+
   const sorted = useMemo(() => {
     const q = filterQ.trim().toLowerCase();
     const filtered = filas
@@ -204,11 +205,13 @@ export function TareasProveedorTable({
       });
     if (!sortKey) return filtered;
     const signo = sortDir === "asc" ? 1 : -1;
-    // "modulo" y "caso_glpi" son derivados (catálogo / par), no campos de la fila.
+    // "modulo", "tipo" y "caso_glpi" son derivados (catálogo / par), no campos de la fila.
     const valor = (t: TareaFila) =>
       sortKey === "modulo"
         ? (t.modulo_id ? modulosCtl.nombrePorId.get(t.modulo_id) : null)
-        : sortKey === "caso_glpi"
+        : sortKey === "tipo"
+          ? (t.tipo_id ? tipoPorId.get(t.tipo_id)?.nombre : null)
+          : sortKey === "caso_glpi"
           ? casoPorTarea.get(t.id_tarea)?.id_glpi
           : t[sortKey];
     return [...filtered].sort((a, b) => {
@@ -223,7 +226,7 @@ export function TareasProveedorTable({
           : String(va).localeCompare(String(vb), "es", { numeric: true });
       return signo * cmp;
     });
-  }, [filas, filterEstado, filterQ, sortKey, sortDir, modulosCtl.nombrePorId, casoPorTarea]);
+  }, [filas, filterEstado, filterQ, sortKey, sortDir, modulosCtl.nombrePorId, tipoPorId, casoPorTarea]);
 
   const tareaDetalle = detalleId ? (filas.find((t) => t.id === detalleId) ?? null) : null;
   idTareaAbiertaRef.current = tareaDetalle?.id_tarea ?? null;
@@ -239,11 +242,11 @@ export function TareasProveedorTable({
     }
   }
 
-  function persistTipo(ids: string[], tipo: string | null, mensajeOk: string) {
-    setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, tipo } : r)));
+  function persistTipo(ids: string[], tipoId: string | null, mensajeOk: string) {
+    setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, tipo_id: tipoId } : r)));
     startTransition(async () => {
       try {
-        await updateTareasTipo(ids, tipo);
+        await updateTareasTipo(ids, tipoId);
         toast.success(mensajeOk);
       } catch (err) {
         // Revierte el cambio optimista volviendo a lo que vino del servidor.
@@ -253,10 +256,10 @@ export function TareasProveedorTable({
     });
   }
 
-  function handleBulkTipo(tipo: string | null) {
+  function handleBulkTipo(tipoId: string | null) {
     const ids = Array.from(selectedIds);
     setSelectedIds(new Set());
-    persistTipo(ids, tipo, tipo ? `Marcados como ${tipo}` : "Tipo eliminado");
+    persistTipo(ids, tipoId, tipoId ? `Marcados como ${tipoPorId.get(tipoId)?.nombre ?? "tipo"}` : "Tipo eliminado");
   }
 
   // Edición optimista; la acción replica el módulo en el caso GLPI emparejado y
@@ -425,10 +428,8 @@ export function TareasProveedorTable({
                 <EstadoBadge estado={tarea.estado} />
               </TableCell>
               <TableCell>
-                {tarea.tipo ? (
-                  <Badge variant="outline" className={cn(TIPO_CLASS[tarea.tipo] ?? "border-dashed text-muted-foreground")}>
-                    {tarea.tipo}
-                  </Badge>
+                {tarea.tipo_id && tipoPorId.get(tarea.tipo_id) ? (
+                  <EtiquetaBadge nombre={tipoPorId.get(tarea.tipo_id)!.nombre} clave={tipoPorId.get(tarea.tipo_id)!.color} fallbackId={tarea.tipo_id} />
                 ) : (
                   <span className="text-muted-foreground text-xs">—</span>
                 )}
@@ -507,7 +508,8 @@ export function TareasProveedorTable({
                 cache={detallesRef.current}
                 canEdit={canEdit}
                 guardando={isPending}
-                onTipoChange={(tipo) => persistTipo([tareaDetalle.id], tipo, "Tipo actualizado")}
+                tipos={tipos}
+                onTipoChange={(tipoId) => persistTipo([tareaDetalle.id], tipoId, "Tipo actualizado")}
                 modulosCtl={modulosCtl}
                 onModuloChange={(id) => persistModulo([tareaDetalle.id], id)}
                 casoGlpi={casoGlpi}
@@ -525,6 +527,7 @@ export function TareasProveedorTable({
                   <CasoGlpiDePar
                     idTarea={tareaDetalle.id_tarea}
                     cache={glpiParRef.current}
+                    tipos={tipos}
                     modulosCtl={modulosCtl}
                     conTitulo
                   />
@@ -541,39 +544,7 @@ export function TareasProveedorTable({
             {selectedIds.size} tarea{selectedIds.size !== 1 ? "s" : ""} seleccionada{selectedIds.size !== 1 ? "s" : ""}
           </span>
           <span className="text-muted-foreground">·</span>
-          <span className="text-sm text-muted-foreground">Marcar como</span>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo("Requerimiento")}
-            disabled={isPending}
-            className="rounded-md bg-[#1a3d96] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1a3d96]/90 disabled:opacity-60"
-          >
-            Requerimiento
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo("Incidencia")}
-            disabled={isPending}
-            className="rounded-md bg-[#ea580c] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#ea580c]/90 disabled:opacity-60"
-          >
-            Incidencia
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo("Proyecto")}
-            disabled={isPending}
-            className="rounded-md bg-[#0f766e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0f766e]/90 disabled:opacity-60"
-          >
-            Proyecto
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo(null)}
-            disabled={isPending}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
-          >
-            Sin clasificar
-          </button>
+          <TipoBulkSelect tipos={tipos} disabled={isPending} onChange={handleBulkTipo} />
           <ModuloSelect
             ctl={modulosCtl}
             etiqueta="Módulo…"

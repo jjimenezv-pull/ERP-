@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EtiquetaBadge } from "@/components/etiquetas/etiqueta-badge";
+import { TipoBulkSelect } from "@/components/etiquetas/tipo-select";
+import type { Tipo } from "@/lib/supabase/types";
 import { CasoGlpiDetalle } from "@/components/casos/caso-glpi-detalle";
 import { ParDetalleTabs } from "@/components/proveedor/par-detalle-tabs";
 import { TareaDePar } from "@/components/proveedor/tarea-detalle";
@@ -35,11 +38,6 @@ import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
 import { DiasBadge } from "@/components/dias-badge";
 import { COLUMNAS_ORDENABLES, type ColumnaOrdenable } from "@/lib/casos-orden";
-const TIPO_CLASS: Record<string, string> = {
-  "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
-  "Incidencia":    "border-transparent bg-[#ea580c] text-white",
-  "Proyecto":      "border-transparent bg-[#0f766e] text-white",
-};
 
 const ESTADO_INTERNO_CLASS: Record<string, string> = {
   "En espera": "border-transparent bg-[var(--status-espera)] text-[var(--status-espera-foreground)]",
@@ -130,11 +128,14 @@ export function CasosTable({
   idsTareas,
   hoy,
   modulos: modulosIniciales,
+  tipos,
 }: {
   casos: CasoListaConEstado[];
   canEdit: boolean;
   // Catálogo de módulos (una lectura por página, ver cargarModulos).
   modulos: ModuloOpcion[];
+  // Catálogo de tipos (activos e inactivos; ver cargarTipos).
+  tipos: Tipo[];
   // yyyy-MM-dd en hora de Bogotá, calculado en el servidor (ver hoyEnBogota).
   hoy: string;
   // id_tarea de las tareas del proveedor que existen (sin filtros). Solo se
@@ -164,6 +165,8 @@ export function CasosTable({
     },
   });
   const compact = !!searchParams.get("compact");
+  const tipoPorId = useMemo(() => new Map(tipos.map((t) => [t.id, t])), [tipos]);
+  const nombreTipo = useMemo(() => new Map(tipos.map((t) => [t.id, t.nombre])), [tipos]);
 
   // Solo admins reciben ids de tareas: para el resto el set queda vacío.
   const tareasExistentes = useMemo(() => new Set(idsTareas ?? []), [idsTareas]);
@@ -213,30 +216,34 @@ export function CasosTable({
     });
   }
 
-  function handleBulkTipo(tipo: string | null) {
+  function handleBulkTipo(tipoId: string | null) {
     const ids = Array.from(selectedIds);
-    setRows((prev) => prev.map((r) => selectedIds.has(r.id) ? { ...r, tipo } : r));
+    setRows((prev) => prev.map((r) => selectedIds.has(r.id) ? { ...r, tipo_id: tipoId } : r));
     setSelectedIds(new Set());
     startTransition(async () => {
       try {
-        await updateCasosTipo(ids, tipo);
-        toast.success(tipo ? `Marcados como ${tipo}` : "Tipo eliminado");
+        await updateCasosTipo(ids, tipoId);
+        toast.success(tipoId ? `Marcados como ${nombreTipo.get(tipoId) ?? "tipo"}` : "Tipo eliminado");
       } catch (err) {
+        // Revierte el cambio optimista volviendo a lo que vino del servidor.
+        setRows(casos);
         toast.error(err instanceof Error ? err.message : "Error al actualizar");
       }
     });
   }
 
-  function handleTipoDetalle(tipo: string | null) {
+  function handleTipoDetalle(tipoId: string | null) {
     if (!casoDetalle) return;
     const id = casoDetalle.id;
-    setCasoDetalle((prev) => (prev ? { ...prev, tipo } : prev));
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, tipo } : r)));
+    setCasoDetalle((prev) => (prev ? { ...prev, tipo_id: tipoId } : prev));
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, tipo_id: tipoId } : r)));
     startTransition(async () => {
       try {
-        await updateCasosTipo([id], tipo);
+        await updateCasosTipo([id], tipoId);
         toast.success("Tipo actualizado");
       } catch (err) {
+        setRows(casos);
+        setCasoDetalle((prev) => (prev ? (casos.find((c) => c.id === prev.id) ?? prev) : prev));
         toast.error(err instanceof Error ? err.message : "Error");
       }
     });
@@ -436,10 +443,8 @@ export function CasosTable({
                 ) : "—"}
               </TableCell>
               <TableCell>
-                {caso.tipo ? (
-                  <Badge variant="outline" className={cn(TIPO_CLASS[caso.tipo] ?? "border-dashed text-muted-foreground")}>
-                    {caso.tipo}
-                  </Badge>
+                {caso.tipo_id && tipoPorId.get(caso.tipo_id) ? (
+                  <EtiquetaBadge nombre={tipoPorId.get(caso.tipo_id)!.nombre} clave={tipoPorId.get(caso.tipo_id)!.color} fallbackId={caso.tipo_id} />
                 ) : (
                   <span className="text-muted-foreground text-xs">—</span>
                 )}
@@ -511,6 +516,7 @@ export function CasosTable({
                     caso={casoDetalle}
                     canEdit={canEdit}
                     cache={detallesRef.current}
+                    tipos={tipos}
                     onTipoChange={handleTipoDetalle}
                     modulosCtl={modulosCtl}
                     onModuloChange={(id) => handleModulo([casoDetalle.id], id)}
@@ -521,6 +527,7 @@ export function CasosTable({
                   <TareaDePar
                     idTarea={idTareaPar}
                     cache={tareaParRef.current}
+                    tipos={tipos}
                     modulosCtl={modulosCtl}
                     casoGlpi={{ id_glpi: casoDetalle.id_glpi, titulo: casoDetalle.titulo }}
                     conTitulo
@@ -532,6 +539,7 @@ export function CasosTable({
                 caso={casoDetalle}
                 canEdit={canEdit}
                 cache={detallesRef.current}
+                tipos={tipos}
                 onTipoChange={handleTipoDetalle}
                 modulosCtl={modulosCtl}
                 onModuloChange={(id) => handleModulo([casoDetalle.id], id)}
@@ -547,39 +555,7 @@ export function CasosTable({
             {selectedIds.size} caso{selectedIds.size !== 1 ? "s" : ""} seleccionado{selectedIds.size !== 1 ? "s" : ""}
           </span>
           <span className="text-muted-foreground">·</span>
-          <span className="text-sm text-muted-foreground">Marcar como</span>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo("Requerimiento")}
-            disabled={isPending}
-            className="rounded-md bg-[#1a3d96] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#1a3d96]/90 disabled:opacity-60"
-          >
-            Requerimiento
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo("Incidencia")}
-            disabled={isPending}
-            className="rounded-md bg-[#ea580c] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#ea580c]/90 disabled:opacity-60"
-          >
-            Incidencia
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo("Proyecto")}
-            disabled={isPending}
-            className="rounded-md bg-[#0f766e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0f766e]/90 disabled:opacity-60"
-          >
-            Proyecto
-          </button>
-          <button
-            type="button"
-            onClick={() => handleBulkTipo(null)}
-            disabled={isPending}
-            className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
-          >
-            Sin clasificar
-          </button>
+          <TipoBulkSelect tipos={tipos} disabled={isPending} onChange={handleBulkTipo} />
           <ModuloSelect
             ctl={modulosCtl}
             etiqueta="Módulo…"

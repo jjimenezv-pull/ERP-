@@ -9,11 +9,16 @@ import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { construirParesGlpi } from "@/lib/proveedor/par";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
 import { cargarModulos } from "@/lib/modulos";
+import { cargarTipos } from "@/lib/tipos";
 import { ordenaEnMemoria, ordenarEnMemoria, parseOrderBy } from "@/lib/casos-orden";
 import { COLUMNAS_TAREAS_LISTA, hoyEnBogota, type TareaLista } from "@/lib/proveedor/tareas";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
+
+// Filtro ?tipo=: id del tipo o "sin_clasificar". Un valor viejo (nombre de tipo)
+// o un id inexistente se ignora: comparar un uuid con texto rompería la consulta.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const COLUMNAS_TEXTO_BUSCABLES = [
   "titulo",
@@ -36,6 +41,7 @@ interface ProveedorPageProps {
     orderBy?: string;
     orderDir?: string;
     urgencia?: string;
+    tipo?: string;
   };
 }
 
@@ -79,6 +85,11 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
   if (searchParams.urgencia) {
     query = query.eq("urgencia", searchParams.urgencia);
   }
+  if (searchParams.tipo === "sin_clasificar") {
+    query = query.is("tipo_id", null);
+  } else if (searchParams.tipo && UUID_RE.test(searchParams.tipo)) {
+    query = query.eq("tipo_id", searchParams.tipo);
+  }
 
   const q = searchParams.q?.trim();
   if (q) {
@@ -104,7 +115,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
   // Todo en paralelo para no encadenar round-trips. Las tareas del proveedor y los
   // pares caso<->tarea se piden siempre (son pocas filas) pero solo se usan y
   // envían al cliente si el usuario es admin.
-  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes, paresRes, modulos] =
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes, paresRes, modulos, tipos] =
     await Promise.all([
       getCurrentProfile(),
       query,
@@ -122,6 +133,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
         .neq("caso_escalado_proveedor", "")
         .order("id_glpi", { ascending: true }),
       cargarModulos(),
+      cargarTipos(),
     ]);
   const canEdit = profile?.role === "admin";
 
@@ -144,7 +156,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     }),
     orderBy,
     orderDir,
-    { hoy, nombreModulo: new Map(modulos.map((m) => [m.id, m.nombre])) }
+    { hoy, nombreModulo: new Map(modulos.map((m) => [m.id, m.nombre])), nombreTipo: new Map(tipos.map((t) => [t.id, t.nombre])) }
   );
 
   // Solo admins reciben las tareas. Sin los textos largos (se piden al abrir el detalle).
@@ -161,9 +173,9 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
         </div>
       </div>
 
-      <CasosFilters estadosProveedor={estadosProveedor} />
+      <CasosFilters estadosProveedor={estadosProveedor} tipos={tipos} />
 
-      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} modulos={modulos} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} modulos={modulos} tipos={tipos} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}
@@ -176,7 +188,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
             <ImportTareasDialog />
           </div>
           <ProveedorKpiCards tareas={tareasProveedor} />
-          <TareasProveedorTable tareas={tareasProveedor} paresGlpi={paresGlpi} canEdit={canEdit} hoy={hoy} modulos={modulos} />
+          <TareasProveedorTable tareas={tareasProveedor} paresGlpi={paresGlpi} canEdit={canEdit} hoy={hoy} modulos={modulos} tipos={tipos} />
         </section>
       )}
     </div>

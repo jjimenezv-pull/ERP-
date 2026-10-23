@@ -6,8 +6,8 @@ import {
   parseComentarios,
 } from "@/lib/proveedor/comentarios";
 
-// Sin `tipo` ni `actualizado_por` a propósito: el upsert nunca debe pisar la
-// clasificación hecha en la app (tipo) ni el dato legado (actualizado_por).
+// Sin `tipo`/`tipo_id` ni `actualizado_por` a propósito: el upsert nunca debe pisar la
+// clasificación hecha en la app (tipo_id) ni el dato legado (actualizado_por).
 export type ParsedTareaProveedor = {
   id_tarea: number;
   proyecto: string | null;

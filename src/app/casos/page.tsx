@@ -7,10 +7,15 @@ import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
 import { hoyEnBogota } from "@/lib/proveedor/tareas";
 import { cargarModulos } from "@/lib/modulos";
+import { cargarTipos } from "@/lib/tipos";
 import { ordenaEnMemoria, ordenarEnMemoria, parseOrderBy } from "@/lib/casos-orden";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
+
+// Filtro ?tipo=: id del tipo o "sin_clasificar". Un valor viejo (nombre de tipo)
+// o un id inexistente se ignora: comparar un uuid con texto rompería la consulta.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const COLUMNAS_TEXTO_BUSCABLES = [
   "titulo",
@@ -75,12 +80,10 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
   if (searchParams.urgencia) {
     query = query.eq("urgencia", searchParams.urgencia);
   }
-  if (searchParams.tipo) {
-    if (searchParams.tipo === "sin_clasificar") {
-      query = query.is("tipo", null);
-    } else {
-      query = query.eq("tipo", searchParams.tipo);
-    }
+  if (searchParams.tipo === "sin_clasificar") {
+    query = query.is("tipo_id", null);
+  } else if (searchParams.tipo && UUID_RE.test(searchParams.tipo)) {
+    query = query.eq("tipo_id", searchParams.tipo);
   }
 
   const q = searchParams.q?.trim();
@@ -106,8 +109,8 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
 
   // Perfil, casos y mapa de estados son independientes: van en paralelo para
   // no encadenar round-trips a Supabase.
-  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, modulos] =
-    await Promise.all([getCurrentProfile(), query, cargarMapaEstados(), cargarModulos()]);
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, modulos, tipos] =
+    await Promise.all([getCurrentProfile(), query, cargarMapaEstados(), cargarModulos(), cargarTipos()]);
   const canEdit = profile?.role === "admin";
   // Solo admins reciben ids de tareas (habilitan la pestaña "Caso proveedor"). Se
   // reutiliza el mapa de estados, que ya trae todas las tareas: sin consulta extra.
@@ -130,7 +133,7 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
     }),
     orderBy,
     orderDir,
-    { hoy, nombreModulo: new Map(modulos.map((m) => [m.id, m.nombre])) }
+    { hoy, nombreModulo: new Map(modulos.map((m) => [m.id, m.nombre])), nombreTipo: new Map(tipos.map((t) => [t.id, t.nombre])) }
   );
 
   // Sin orderBy explícito: abiertos primero (En espera / En curso), luego cerrados,
@@ -154,9 +157,9 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
         {canEdit && <ImportDialog />}
       </div>
 
-      <CasosFilters estadosProveedor={estadosProveedor} />
+      <CasosFilters estadosProveedor={estadosProveedor} tipos={tipos} />
 
-      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} modulos={modulos} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} modulos={modulos} tipos={tipos} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}

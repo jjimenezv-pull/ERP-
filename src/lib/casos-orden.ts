@@ -26,7 +26,7 @@ export type ColumnaOrdenable = (typeof COLUMNAS_ORDENABLES)[number];
 // Derivadas (no son columnas de `casos`): la base ordena por fecha de apertura
 // mientras tanto y el orden real se aplica en memoria (ver ordenarEnMemoria).
 // "estado_proveedor" se resuelve aparte, en aplicarEstadoProveedor.
-const EN_MEMORIA = new Set<ColumnaOrdenable>(["dias", "modulo", "caso_escalado_proveedor"]);
+const EN_MEMORIA = new Set<ColumnaOrdenable>(["dias", "modulo", "tipo", "caso_escalado_proveedor"]);
 
 export function ordenaEnMemoria(col: ColumnaOrdenable): boolean {
   return col === "estado_proveedor" || EN_MEMORIA.has(col);
@@ -42,18 +42,19 @@ export function parseOrderBy(raw: string | undefined): ColumnaOrdenable {
 // la dirección. La referencia del proveedor se compara como número cuando se
 // puede (numeric: true) y como texto si no.
 export function ordenarEnMemoria<
-  T extends Pick<Caso, "estado_interno" | "fecha_apertura" | "fecha_cierre" | "modulo_id" | "caso_escalado_proveedor">,
+  T extends Pick<Caso, "estado_interno" | "fecha_apertura" | "fecha_cierre" | "modulo_id" | "tipo_id" | "caso_escalado_proveedor">,
 >(
   casos: T[],
   col: ColumnaOrdenable,
   dir: "asc" | "desc",
-  ctx: { hoy: string; nombreModulo: Map<string, string> }
+  ctx: { hoy: string; nombreModulo: Map<string, string>; nombreTipo: Map<string, string> }
 ): T[] {
   if (!EN_MEMORIA.has(col)) return casos;
   const signo = dir === "asc" ? 1 : -1;
   const valor = (c: T): number | string | null => {
     if (col === "dias") return diasCaso(ctx.hoy, c).dias;
     if (col === "modulo") return c.modulo_id ? (ctx.nombreModulo.get(c.modulo_id) ?? null) : null;
+    if (col === "tipo") return c.tipo_id ? (ctx.nombreTipo.get(c.tipo_id) ?? null) : null;
     return c.caso_escalado_proveedor?.trim() || null;
   };
   return [...casos].sort((a, b) => {

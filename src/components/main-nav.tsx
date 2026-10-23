@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Users } from "lucide-react";
+import { LogOut, Settings, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -77,6 +77,14 @@ export function MainNav({ profile }: { profile: CurrentProfile | null }) {
                   <Link href="/usuarios">
                     <Users className="mr-2 h-4 w-4" />
                     Usuarios
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {puedeNavegar && profile.role === "admin" && (
+                <DropdownMenuItem asChild>
+                  <Link href="/ajustes">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Ajustes
                   </Link>
                 </DropdownMenuItem>
               )}

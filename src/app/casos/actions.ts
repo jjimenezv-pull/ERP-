@@ -8,6 +8,7 @@ import {
   conEstadoProveedor,
   construirMapaEstados,
 } from "@/lib/proveedor/cruce";
+import { validarTipoActivo } from "@/lib/tipos";
 import { idTareaDeReferencia, type CasoGlpiPar } from "@/lib/proveedor/par";
 
 export async function updateCasoProveedor(
@@ -27,11 +28,12 @@ export async function updateCasoProveedor(
   revalidatePath("/proveedor");
 }
 
-export async function updateCasosTipo(ids: string[], tipo: string | null) {
+export async function updateCasosTipo(ids: string[], tipoId: string | null) {
   await requireAdmin();
+  await validarTipoActivo(tipoId);
 
   const supabase = createServerClient();
-  const { error } = await supabase.from("casos").update({ tipo }).in("id", ids);
+  const { error } = await supabase.from("casos").update({ tipo_id: tipoId }).in("id", ids);
 
   if (error) {
     throw new Error(error.message);

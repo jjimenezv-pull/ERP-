@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/get-current-profile";
+import { validarTipoActivo } from "@/lib/tipos";
 import type { ParsedTareaProveedor } from "@/lib/proveedor/parse-tareas";
 import { COLUMNAS_TAREA_DETALLE, hoyEnBogota, type TareaDetalle } from "@/lib/proveedor/tareas";
 import type { TareaPar } from "@/lib/proveedor/par";
@@ -56,7 +57,7 @@ export async function importTareasProveedor(
   const actualizados = rows.length - nuevos;
 
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
-    // Se arma el payload campo por campo (nunca se esparce la fila): `tipo` es
+    // Se arma el payload campo por campo (nunca se esparce la fila): `tipo`/`tipo_id` son
     // la clasificación hecha en la app y el upsert jamás debe sobreescribirla.
     const chunk = rows.slice(i, i + CHUNK_SIZE).map(soloCamposImportables);
     const { error } = await supabase.from("casos_proveedor").upsert(chunk, { onConflict: "id_tarea" });
@@ -70,11 +71,12 @@ export async function importTareasProveedor(
   return { nuevos, actualizados };
 }
 
-export async function updateTareasTipo(ids: string[], tipo: string | null) {
+export async function updateTareasTipo(ids: string[], tipoId: string | null) {
   await requireAdmin();
+  await validarTipoActivo(tipoId);
 
   const supabase = createServerClient();
-  const { error } = await supabase.from("casos_proveedor").update({ tipo }).in("id", ids);
+  const { error } = await supabase.from("casos_proveedor").update({ tipo_id: tipoId }).in("id", ids);
 
   if (error) {
     throw new Error(error.message);

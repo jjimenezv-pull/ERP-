@@ -28,6 +28,7 @@ export type Database = {
           titulo: string | null;
           estado_interno: EstadoInterno;
           tipo: string | null;
+          tipo_id: string | null;
           modulo_id: string | null;
           ubicacion: string | null;
           solicitante: string | null;
@@ -56,10 +57,31 @@ export type Database = {
         Row: {
           id: string;
           nombre: string;
+          color?: string | null;
           created_at: string;
         };
-        Insert: { id?: string; nombre: string; created_at?: string };
+        Insert: { id?: string; nombre: string; color?: string | null; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["modulos"]["Row"]>;
+        Relationships: [];
+      };
+      tipos: {
+        Row: {
+          id: string;
+          nombre: string;
+          color: string;
+          orden: number;
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          nombre: string;
+          color: string;
+          orden?: number;
+          activo?: boolean;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tipos"]["Row"]>;
         Relationships: [];
       };
       login_attempts: {
@@ -89,6 +111,7 @@ export type Database = {
           actualizado_por: string | null;
           estado: string | null;
           tipo: string | null;
+          tipo_id: string | null;
           modulo_id: string | null;
           tipo_tarea: string | null;
           // timestamp sin zona horaria (hora local del export del proveedor)
@@ -123,3 +146,4 @@ export type Database = {
 export type Caso = Database["public"]["Tables"]["casos"]["Row"];
 export type CasoProveedor = Database["public"]["Tables"]["casos_proveedor"]["Row"];
 export type Modulo = Database["public"]["Tables"]["modulos"]["Row"];
+export type Tipo = Database["public"]["Tables"]["tipos"]["Row"];

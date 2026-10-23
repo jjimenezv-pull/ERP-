@@ -255,10 +255,24 @@ Nueva columna **Días** (después de F. Cierre) en `casos-table.tsx`, visible en
 Los badges de **Días** y de **Módulo** eran pastel (`bg-green-100`, `bg-blue-100`...) y no se parecían a Estado/Urgencia/Tipo. Ahora usan `Badge variant="outline"` + `border-transparent bg-[var(--token)] text-[var(--token-fg)]` (relleno sólido, texto de contraste). Tokens nuevos en `globals.css` (claro y oscuro): `--dias-1..5` (+`-fg`; reutilizan por `var()` verde = curso, amarillo = espera, naranja = urgencia alta, rojo = muy alta, y un rojo oscuro nuevo para 31+) y `--modulo-1..10` (+`-fg`; colores distintos a los de estado/urgencia/tipo, contraste de texto >= 4,5:1). Umbrales y comportamiento sin dato de Días sin cambios; el módulo sigue eligiendo color por hash estable del id. Archivos: `src/lib/dias.ts`, `src/components/modulos/modulo-select.tsx` (badge y punto de color del selector), `src/app/globals.css`.
 **Regla para futuros diseños** escrita en `CLAUDE.md` (sección "Regla de diseño: badges y colores"): todo badge de color usa esa variante y esos tokens; nada de pasteles ni hex sueltos.
 
+**Comentarios de tareas del proveedor con nombre completo:** `ComentariosLista` (`tarea-detalle.tsx`) ahora muestra el nombre del autor (semibold, sin fuente mono) y deja las iniciales como tooltip (`title`). El mapa iniciales -> nombre es la constante `AUTORES_PROVEEDOR` en `src/lib/proveedor/autores.ts` (con `nombreAutor()`, comparación exacta tras trim); hay que mantenerla cuando entre gente nueva. Iniciales desconocidas se muestran tal cual como antes. Solo presentación: `parseComentarios` y lo guardado en BD no cambian.
+
+## Actualización 2026-10-22 — Panel de ajustes, fase 1 (tipos, módulos y colores)
+
+Spec: `docs/superpowers/specs/2026-10-22-panel-ajustes-fase1-design.md`; plan: `docs/superpowers/plans/2026-10-22-panel-ajustes-fase1.md`.
+
+- **Página `/ajustes` (solo admin; el visualizador es redirigido a `/casos`)**, enlace "Ajustes" en el menú del usuario. Pestañas **Tipos** y **Módulos**: crear, renombrar, cambiar color, contador de uso; tipos además se reordenan, se activan/desactivan y solo se borran sin uso.
+- **Tipos ahora son un catálogo** (`tipos`: nombre, color, orden, activo) con `tipo_id` en `casos` y `casos_proveedor` (FK `ON DELETE RESTRICT`). La columna de texto `tipo` se conserva sin leerse ni escribirse como respaldo; se eliminará en una migración posterior. Migración `20261023_tipos_y_colores.sql` (aplicada en Supabase; verificada: casos 292/31, tareas 19/11/3, 0 desajustes).
+- **Paleta cerrada de 30 colores** `--etiqueta-1..30` (+ `-fg`) en `globals.css` (claro y oscuro); `src/lib/etiquetas.ts`, `EtiquetaBadge` y `SelectorColor`. Reemplaza `--modulo-N` y los hex de `TIPO_CLASS`. `modulos.color` guarda la clave; si es null se usa el color por hash del id (aspecto previo). Conocido: colores 5 y 13 comparten hex; el 12 con texto blanco queda en 3,56:1 (igual que el Incidencia anterior).
+- **Selector "Tipo…"** en la barra de acciones (reemplaza los 3 botones fijos) y `TipoSelect` en los detalles; filtro por tipo del catálogo (`?tipo=<id>` o `sin_clasificar`; valores viejos se ignoran). `/proveedor` ahora sí aplica el filtro de tipo a su tabla de casos GLPI.
+- **Nombres de autores** en "last comments" (ver entrada anterior): `src/lib/proveedor/autores.ts`; la inicial `A` (9 comentarios) sigue sin nombre asignado.
+- Verificado: `tsc`, `lint` y `next build` limpios. Importadores siguen sin enviar `tipo`/`tipo_id`/`modulo_id`.
+- **Fases siguientes:** (2) rangos de días editables, (3) autores del proveedor y usuarios como pestañas, (4) estados del proveedor y opciones de importación; luego eliminar la columna `tipo` de texto.
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).
-2. **Reimportar `Tareas_5.csv`** (Casos Proveedor -> Importar CSV, debe dar 11 filas listas y 0 errores) para llenar las columnas nuevas (tipo de tarea, última actualización, descripción, last comments, días) de las tareas existentes; mientras tanto muestran "—".
+2. ~~**Reimportar `Tareas_5.csv`**~~ — **COMPLETADO** (reimportado en producción por el usuario).
 3. **KPIs de tipo** (Requerimiento/Incidencia): ya hay datos (casos GLPI: 292 Requerimiento / 31 Incidencia; tareas proveedor: 19 / 11, 3 sin clasificar al 2026-10-21). Falta definir qué KPIs (distribución, tendencia semanal por tipo, tiempo de resolución por tipo) y si incluye tareas del proveedor.
 4. **Rediseño PPTX** — diseño actual no convence; agregar distribución de tipo al reporte (reutilizar las cifras de los KPIs).
 5. Opcional: mover Supabase de `us-west-2` a `us-east-1` (junto a las funciones de Netlify en IAD, no editable en el plan gratuito) para bajar la latencia restante (~1,2 s en `/casos`); implica proyecto nuevo y migrar datos/usuarios.
