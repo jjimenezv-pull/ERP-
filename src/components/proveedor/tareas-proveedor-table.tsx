@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { updateTareasTipo } from "@/app/proveedor/import-actions";
+import { asignarModulo } from "@/app/modulos/actions";
+import { ModuloBadge, ModuloSelect, useModulos, type ModuloOpcion } from "@/components/modulos/modulo-select";
 
 import {
   Table,
@@ -22,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { DiasBadge } from "@/components/dias-badge";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -39,7 +42,6 @@ import {
 import { CasoGlpiDePar } from "@/components/casos/caso-glpi-detalle";
 import { ParDetalleTabs } from "@/components/proveedor/par-detalle-tabs";
 import {
-  claseDiasRespuesta,
   conDias,
   EstadoBadge,
   TareaDetalle,
@@ -54,6 +56,7 @@ import { limpiarCacheSalvo } from "@/lib/use-detalle-bajo-demanda";
 const TIPO_CLASS: Record<string, string> = {
   "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
   "Incidencia":    "border-transparent bg-[#ea580c] text-white",
+  "Proyecto":      "border-transparent bg-[#0f766e] text-white",
 };
 
 const ESTADOS_TAREA = ["En Desarrollo", "En Revision", "Pendiente Cliente", "Cerrada", "Caducada"] as const;
@@ -92,7 +95,9 @@ type SortKey =
   | "tipo_facturacion"
   | "ultima_actualizacion"
   | "dias_respuesta"
-  | "tipo";
+  | "tipo"
+  | "modulo"
+  | "caso_glpi";
 
 function SortableHead({
   sortKey,
@@ -133,8 +138,11 @@ export function TareasProveedorTable({
   paresGlpi = [],
   canEdit = false,
   hoy,
+  modulos: modulosIniciales,
 }: {
   tareas: TareaLista[];
+  // Catálogo de módulos (una lectura por página, ver cargarModulos).
+  modulos: ModuloOpcion[];
   // Casos GLPI que referencian una tarea, SIN los filtros de la página: así la
   // columna "Caso GLPI" y la pestaña del detalle no dependen de lo filtrado arriba.
   paresGlpi?: ParGlpi[];
@@ -150,6 +158,11 @@ export function TareasProveedorTable({
   const [rows, setRows] = useState(tareas);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [isPending, startTransition] = useTransition();
+  const modulosCtl = useModulos(modulosIniciales, {
+    onEliminado: (id) => {
+      setRows((prev) => prev.map((r) => (r.modulo_id === id ? { ...r, modulo_id: null } : r)));
+    },
+  });
 
   // Detalle (textos largos) bajo demanda, cacheado por id (lo llenan los
   // componentes de detalle). Un segundo cache guarda el caso GLPI emparejado,
@@ -191,9 +204,16 @@ export function TareasProveedorTable({
       });
     if (!sortKey) return filtered;
     const signo = sortDir === "asc" ? 1 : -1;
+    // "modulo" y "caso_glpi" son derivados (catálogo / par), no campos de la fila.
+    const valor = (t: TareaFila) =>
+      sortKey === "modulo"
+        ? (t.modulo_id ? modulosCtl.nombrePorId.get(t.modulo_id) : null)
+        : sortKey === "caso_glpi"
+          ? casoPorTarea.get(t.id_tarea)?.id_glpi
+          : t[sortKey];
     return [...filtered].sort((a, b) => {
-      const va = a[sortKey];
-      const vb = b[sortKey];
+      const va = valor(a);
+      const vb = valor(b);
       // Los vacíos van siempre al final, sin importar la dirección.
       if (va === null || va === undefined || va === "") return vb === null || vb === undefined || vb === "" ? 0 : 1;
       if (vb === null || vb === undefined || vb === "") return -1;
@@ -203,7 +223,7 @@ export function TareasProveedorTable({
           : String(va).localeCompare(String(vb), "es", { numeric: true });
       return signo * cmp;
     });
-  }, [filas, filterEstado, filterQ, sortKey, sortDir]);
+  }, [filas, filterEstado, filterQ, sortKey, sortDir, modulosCtl.nombrePorId, casoPorTarea]);
 
   const tareaDetalle = detalleId ? (filas.find((t) => t.id === detalleId) ?? null) : null;
   idTareaAbiertaRef.current = tareaDetalle?.id_tarea ?? null;
@@ -237,6 +257,28 @@ export function TareasProveedorTable({
     const ids = Array.from(selectedIds);
     setSelectedIds(new Set());
     persistTipo(ids, tipo, tipo ? `Marcados como ${tipo}` : "Tipo eliminado");
+  }
+
+  // Edición optimista; la acción replica el módulo en el caso GLPI emparejado y
+  // revalida ambas páginas. Si falla se vuelve a lo que vino del servidor.
+  function persistModulo(ids: string[], moduloId: string | null) {
+    const sel = new Set(ids);
+    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, modulo_id: moduloId } : r)));
+    startTransition(async () => {
+      const res = await asignarModulo("tareas", ids, moduloId);
+      if (res.error !== undefined) {
+        setRows(tareas);
+        toast.error(res.error);
+        return;
+      }
+      toast.success(moduloId ? "Módulo asignado" : "Módulo eliminado");
+    });
+  }
+
+  function handleBulkModulo(moduloId: string | null) {
+    const ids = Array.from(selectedIds);
+    setSelectedIds(new Set());
+    persistModulo(ids, moduloId);
   }
 
   if (rows.length === 0) {
@@ -306,13 +348,14 @@ export function TareasProveedorTable({
             </TableHead>
           )}
           <TableHead className="w-8"><span className="sr-only">Detalle</span></TableHead>
-          <TableHead className="text-white">Caso GLPI</TableHead>
+          <SortableHead sortKey="caso_glpi" current={sortKey} dir={sortDir} onSort={handleSort}>Caso GLPI</SortableHead>
           <SortableHead sortKey="id_tarea" current={sortKey} dir={sortDir} onSort={handleSort}>ID tarea</SortableHead>
           <SortableHead sortKey="asunto" current={sortKey} dir={sortDir} onSort={handleSort}>Asunto</SortableHead>
           <SortableHead sortKey="autor" current={sortKey} dir={sortDir} onSort={handleSort}>Autor</SortableHead>
           <SortableHead sortKey="asignatario" current={sortKey} dir={sortDir} onSort={handleSort}>Asignatario</SortableHead>
           <SortableHead sortKey="estado" current={sortKey} dir={sortDir} onSort={handleSort}>Estatus</SortableHead>
           <SortableHead sortKey="tipo" current={sortKey} dir={sortDir} onSort={handleSort}>Tipo</SortableHead>
+          <SortableHead sortKey="modulo" current={sortKey} dir={sortDir} onSort={handleSort}>Módulo</SortableHead>
           <SortableHead sortKey="fecha_inicio" current={sortKey} dir={sortDir} onSort={handleSort}>F. inicio</SortableHead>
           <SortableHead sortKey="dias_creacion" current={sortKey} dir={sortDir} onSort={handleSort} title="Días desde creación">Días creación</SortableHead>
           <SortableHead sortKey="ultima_actualizacion" current={sortKey} dir={sortDir} onSort={handleSort}>Última actualización</SortableHead>
@@ -390,18 +433,31 @@ export function TareasProveedorTable({
                   <span className="text-muted-foreground text-xs">—</span>
                 )}
               </TableCell>
+              <TableCell className={cn(compact ? "min-w-[90px]" : "min-w-[150px]")}>
+                {canEdit ? (
+                  <ModuloSelect
+                    ctl={modulosCtl}
+                    value={tarea.modulo_id}
+                    disabled={isPending}
+                    onChange={(id) => persistModulo([tarea.id], id)}
+                  />
+                ) : tarea.modulo_id ? (
+                  modulosCtl.nombrePorId.get(tarea.modulo_id) ? (
+                    <ModuloBadge id={tarea.modulo_id} nombre={modulosCtl.nombrePorId.get(tarea.modulo_id)!} />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )
+                ) : (
+                  <span className="text-muted-foreground text-xs">—</span>
+                )}
+              </TableCell>
               <TableCell className="whitespace-nowrap">{formatFecha(tarea.fecha_inicio)}</TableCell>
-              <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">
-                {tarea.dias_creacion ?? "—"}
+              <TableCell className="whitespace-nowrap">
+                <DiasBadge dias={tarea.dias_creacion} />
               </TableCell>
               <TableCell className="whitespace-nowrap">{formatFechaHora(tarea.ultima_actualizacion)}</TableCell>
-              <TableCell
-                className={cn(
-                  "whitespace-nowrap tabular-nums",
-                  claseDiasRespuesta(tarea.dias_respuesta, tarea.estado)
-                )}
-              >
-                {tarea.dias_respuesta ?? "—"}
+              <TableCell className="whitespace-nowrap">
+                <DiasBadge dias={tarea.dias_respuesta} />
               </TableCell>
               <TableCell className="whitespace-nowrap">{formatFecha(tarea.fecha_fin)}</TableCell>
               <TableCell>
@@ -452,6 +508,8 @@ export function TareasProveedorTable({
                 canEdit={canEdit}
                 guardando={isPending}
                 onTipoChange={(tipo) => persistTipo([tareaDetalle.id], tipo, "Tipo actualizado")}
+                modulosCtl={modulosCtl}
+                onModuloChange={(id) => persistModulo([tareaDetalle.id], id)}
                 casoGlpi={casoGlpi}
                 conTitulo={conTitulo}
               />
@@ -467,6 +525,7 @@ export function TareasProveedorTable({
                   <CasoGlpiDePar
                     idTarea={tareaDetalle.id_tarea}
                     cache={glpiParRef.current}
+                    modulosCtl={modulosCtl}
                     conTitulo
                   />
                 }
@@ -501,12 +560,27 @@ export function TareasProveedorTable({
           </button>
           <button
             type="button"
+            onClick={() => handleBulkTipo("Proyecto")}
+            disabled={isPending}
+            className="rounded-md bg-[#0f766e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0f766e]/90 disabled:opacity-60"
+          >
+            Proyecto
+          </button>
+          <button
+            type="button"
             onClick={() => handleBulkTipo(null)}
             disabled={isPending}
             className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
           >
             Sin clasificar
           </button>
+          <ModuloSelect
+            ctl={modulosCtl}
+            etiqueta="Módulo…"
+            disabled={isPending}
+            onChange={handleBulkModulo}
+            className="h-9 w-auto min-w-[110px]"
+          />
           <button
             type="button"
             onClick={() => setSelectedIds(new Set())}

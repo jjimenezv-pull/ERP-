@@ -171,6 +171,7 @@ export function CasosFilters({ estadosProveedor }: { estadosProveedor: string[] 
           <SelectItem value="todos">Todos los tipos</SelectItem>
           <SelectItem value="Requerimiento">Requerimiento</SelectItem>
           <SelectItem value="Incidencia">Incidencia</SelectItem>
+          <SelectItem value="Proyecto">Proyecto</SelectItem>
           <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
         </SelectContent>
       </Select>

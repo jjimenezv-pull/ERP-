@@ -6,6 +6,8 @@ import { ImportDialog } from "@/components/casos/import-dialog";
 import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
 import { hoyEnBogota } from "@/lib/proveedor/tareas";
+import { cargarModulos } from "@/lib/modulos";
+import { ordenaEnMemoria, ordenarEnMemoria, parseOrderBy } from "@/lib/casos-orden";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
@@ -16,20 +18,6 @@ const COLUMNAS_TEXTO_BUSCABLES = [
   "tecnico_asignado",
   "categoria",
   "ubicacion",
-] as const;
-
-// Debe coincidir con SORTABLE_COLUMNS en src/components/casos/casos-table.tsx.
-const COLUMNAS_ORDENABLES = [
-  "id_glpi",
-  "titulo",
-  "estado_interno",
-  "categoria",
-  "solicitante",
-  "tecnico_asignado",
-  "fecha_apertura",
-  "fecha_cierre",
-  "urgencia",
-  "estado_proveedor",
 ] as const;
 
 interface CasosPageProps {
@@ -52,19 +40,19 @@ interface CasosPageProps {
 export default async function CasosPage({ searchParams }: CasosPageProps) {
   const supabase = createServerClient();
 
-  const orderBy = (COLUMNAS_ORDENABLES as readonly string[]).includes(searchParams.orderBy ?? "")
-    ? (searchParams.orderBy as (typeof COLUMNAS_ORDENABLES)[number])
-    : "fecha_apertura";
+  const orderBy = parseOrderBy(searchParams.orderBy);
   const orderDir = searchParams.orderDir === "asc" ? "asc" : "desc";
 
   const ordenPorEstadoProveedor = orderBy === "estado_proveedor";
+  const ordenDerivado = ordenaEnMemoria(orderBy);
 
-  // "estado_proveedor" es derivado (cruce con casos_proveedor), no una columna
-  // real: se ordena en memoria más abajo, la base ordena por fecha mientras tanto.
+  // "estado_proveedor", "dias", "modulo" y "caso_escalado_proveedor" son derivados
+  // (o requieren orden numérico): se ordenan en memoria más abajo, la base ordena
+  // por fecha mientras tanto.
   let query = supabase
     .from("casos")
     .select(COLUMNAS_LISTA)
-    .order(ordenPorEstadoProveedor ? "fecha_apertura" : orderBy, {
+    .order(ordenDerivado ? "fecha_apertura" : orderBy, {
       ascending: orderDir === "asc",
       nullsFirst: false,
     });
@@ -118,12 +106,14 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
 
   // Perfil, casos y mapa de estados son independientes: van en paralelo para
   // no encadenar round-trips a Supabase.
-  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }] =
-    await Promise.all([getCurrentProfile(), query, cargarMapaEstados()]);
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, modulos] =
+    await Promise.all([getCurrentProfile(), query, cargarMapaEstados(), cargarModulos()]);
   const canEdit = profile?.role === "admin";
   // Solo admins reciben ids de tareas (habilitan la pestaña "Caso proveedor"). Se
   // reutiliza el mapa de estados, que ya trae todas las tareas: sin consulta extra.
   const idsTareas = canEdit ? Array.from(mapa.keys()) : undefined;
+  // "Hoy" se calcula una sola vez: ver hoyEnBogota.
+  const hoy = hoyEnBogota();
 
   if (error || errorMapa) {
     return (
@@ -133,10 +123,15 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
     );
   }
 
-  const casos = aplicarEstadoProveedor(data ?? [], mapa, {
-    filtro: searchParams.estado_proveedor,
-    ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
-  });
+  const casos = ordenarEnMemoria(
+    aplicarEstadoProveedor(data ?? [], mapa, {
+      filtro: searchParams.estado_proveedor,
+      ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
+    }),
+    orderBy,
+    orderDir,
+    { hoy, nombreModulo: new Map(modulos.map((m) => [m.id, m.nombre])) }
+  );
 
   // Sin orderBy explícito: abiertos primero (En espera / En curso), luego cerrados,
   // dentro de cada grupo por fecha_apertura desc.
@@ -161,7 +156,7 @@ export default async function CasosPage({ searchParams }: CasosPageProps) {
 
       <CasosFilters estadosProveedor={estadosProveedor} />
 
-      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoyEnBogota()} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} modulos={modulos} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}

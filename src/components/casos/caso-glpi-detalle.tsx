@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { asignarModulo } from "@/app/modulos/actions";
+import { ModuloBadge, ModuloSelect, type ModulosCtl } from "@/components/modulos/modulo-select";
 import {
   getCasoDetalle,
   getCasoGlpiPorTarea,
@@ -29,12 +31,14 @@ interface CuerpoProps {
   cargando: boolean;
   canEdit: boolean;
   onTipoChange: (tipo: string | null) => void;
+  modulosCtl: ModulosCtl;
+  onModuloChange: (moduloId: string | null) => void;
   // Con pestañas el título del diálogo es el par; el del caso va dentro de su pestaña.
   conTitulo?: boolean;
 }
 
 // Cuerpo del detalle de un caso GLPI (sin lógica de carga).
-function CasoGlpiCuerpo({ caso, detalle, cargando, canEdit, onTipoChange, conTitulo }: CuerpoProps) {
+function CasoGlpiCuerpo({ caso, detalle, cargando, canEdit, onTipoChange, modulosCtl, onModuloChange, conTitulo }: CuerpoProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [solExpanded, setSolExpanded] = useState(false);
 
@@ -76,10 +80,23 @@ function CasoGlpiCuerpo({ caso, detalle, cargando, canEdit, onTipoChange, conTit
                   <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
                   <SelectItem value="Requerimiento">Requerimiento</SelectItem>
                   <SelectItem value="Incidencia">Incidencia</SelectItem>
+                  <SelectItem value="Proyecto">Proyecto</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           )}
+          <div className="col-span-2">
+            <span className="text-xs text-muted-foreground">Módulo</span>
+            {canEdit ? (
+              <ModuloSelect ctl={modulosCtl} value={caso.modulo_id} onChange={onModuloChange} className="mt-1" />
+            ) : (
+              caso.modulo_id && modulosCtl.nombrePorId.get(caso.modulo_id) ? (
+                <ModuloBadge id={caso.modulo_id} nombre={modulosCtl.nombrePorId.get(caso.modulo_id)!} />
+              ) : (
+                <p>—</p>
+              )
+            )}
+          </div>
         </div>
       </div>
 
@@ -191,12 +208,16 @@ export function CasoGlpiDetalle({
   canEdit,
   cache,
   onTipoChange,
+  modulosCtl,
+  onModuloChange,
   conTitulo,
 }: {
   caso: CasoListaConEstado;
   canEdit: boolean;
   cache: Map<string, CasoDetalle>;
   onTipoChange: (tipo: string | null) => void;
+  modulosCtl: ModulosCtl;
+  onModuloChange: (moduloId: string | null) => void;
   conTitulo?: boolean;
 }) {
   const { detalle, cargando } = useDetalleBajoDemanda(
@@ -212,6 +233,8 @@ export function CasoGlpiDetalle({
       cargando={cargando}
       canEdit={canEdit}
       onTipoChange={onTipoChange}
+      modulosCtl={modulosCtl}
+      onModuloChange={onModuloChange}
       conTitulo={conTitulo}
     />
   );
@@ -223,10 +246,12 @@ export function CasoGlpiDetalle({
 export function CasoGlpiDePar({
   idTarea,
   cache,
+  modulosCtl,
   conTitulo,
 }: {
   idTarea: number;
   cache: Map<string, CasoGlpiPar | null>;
+  modulosCtl: ModulosCtl;
   conTitulo?: boolean;
 }) {
   const clave = String(idTarea);
@@ -250,6 +275,21 @@ export function CasoGlpiDePar({
       });
   }
 
+  function handleModulo(moduloId: string | null) {
+    if (!par) return;
+    const previo = par.caso.modulo_id;
+    const id = par.caso.id;
+    actualizar(clave, (p) => (p ? { ...p, caso: { ...p.caso, modulo_id: moduloId } } : p));
+    asignarModulo("casos", [id], moduloId).then((res) => {
+      if (res.error !== undefined) {
+        actualizar(clave, (p) => (p ? { ...p, caso: { ...p.caso, modulo_id: previo } } : p));
+        toast.error(res.error);
+        return;
+      }
+      toast.success(moduloId ? "Módulo asignado" : "Módulo eliminado");
+    });
+  }
+
   if (cargando) {
     return <TextoCargando />;
   }
@@ -267,6 +307,8 @@ export function CasoGlpiDePar({
       cargando={false}
       canEdit
       onTipoChange={handleTipo}
+      modulosCtl={modulosCtl}
+      onModuloChange={handleModulo}
       conTitulo={conTitulo}
     />
   );

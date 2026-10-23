@@ -8,6 +8,8 @@ import { ProveedorKpiCards } from "@/components/proveedor/proveedor-kpi-cards";
 import { aplicarEstadoProveedor, COLUMNAS_LISTA } from "@/lib/proveedor/cruce";
 import { construirParesGlpi } from "@/lib/proveedor/par";
 import { cargarMapaEstados } from "@/lib/proveedor/cargar-estados";
+import { cargarModulos } from "@/lib/modulos";
+import { ordenaEnMemoria, ordenarEnMemoria, parseOrderBy } from "@/lib/casos-orden";
 import { COLUMNAS_TAREAS_LISTA, hoyEnBogota, type TareaLista } from "@/lib/proveedor/tareas";
 import type { EstadoInterno } from "@/lib/supabase/types";
 
@@ -19,20 +21,6 @@ const COLUMNAS_TEXTO_BUSCABLES = [
   "tecnico_asignado",
   "categoria",
   "ubicacion",
-] as const;
-
-// Debe coincidir con SORTABLE_COLUMNS en src/components/casos/casos-table.tsx.
-const COLUMNAS_ORDENABLES = [
-  "id_glpi",
-  "titulo",
-  "estado_interno",
-  "categoria",
-  "solicitante",
-  "tecnico_asignado",
-  "fecha_apertura",
-  "fecha_cierre",
-  "urgencia",
-  "estado_proveedor",
 ] as const;
 
 interface ProveedorPageProps {
@@ -54,12 +42,11 @@ interface ProveedorPageProps {
 export default async function ProveedorPage({ searchParams }: ProveedorPageProps) {
   const supabase = createServerClient();
 
-  const orderBy = (COLUMNAS_ORDENABLES as readonly string[]).includes(searchParams.orderBy ?? "")
-    ? (searchParams.orderBy as (typeof COLUMNAS_ORDENABLES)[number])
-    : "fecha_apertura";
+  const orderBy = parseOrderBy(searchParams.orderBy);
   const orderDir = searchParams.orderDir === "asc" ? "asc" : "desc";
 
   const ordenPorEstadoProveedor = orderBy === "estado_proveedor";
+  const ordenDerivado = ordenaEnMemoria(orderBy);
 
   // A diferencia de /casos, esta vista siempre excluye los casos no
   // escalados a proveedor (sin referencia escrita) — no es un filtro que el
@@ -69,7 +56,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     .select(COLUMNAS_LISTA)
     .not("caso_escalado_proveedor", "is", null)
     .neq("caso_escalado_proveedor", "")
-    .order(ordenPorEstadoProveedor ? "fecha_apertura" : orderBy, {
+    .order(ordenDerivado ? "fecha_apertura" : orderBy, {
       ascending: orderDir === "asc",
       nullsFirst: false,
     });
@@ -117,7 +104,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
   // Todo en paralelo para no encadenar round-trips. Las tareas del proveedor y los
   // pares caso<->tarea se piden siempre (son pocas filas) pero solo se usan y
   // envían al cliente si el usuario es admin.
-  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes, paresRes] =
+  const [profile, { data, error }, { mapa, estados: estadosProveedor, error: errorMapa }, tareasRes, paresRes, modulos] =
     await Promise.all([
       getCurrentProfile(),
       query,
@@ -134,6 +121,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
         .not("caso_escalado_proveedor", "is", null)
         .neq("caso_escalado_proveedor", "")
         .order("id_glpi", { ascending: true }),
+      cargarModulos(),
     ]);
   const canEdit = profile?.role === "admin";
 
@@ -145,20 +133,25 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
     );
   }
 
-  const casos = aplicarEstadoProveedor(data ?? [], mapa, {
-    filtro: searchParams.estado_proveedor,
-    soloEscalados: true,
-    ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
-  });
+  // "Hoy" se calcula una sola vez aquí: ver hoyEnBogota.
+  const hoy = hoyEnBogota();
+
+  const casos = ordenarEnMemoria(
+    aplicarEstadoProveedor(data ?? [], mapa, {
+      filtro: searchParams.estado_proveedor,
+      soloEscalados: true,
+      ordenarPorEstado: ordenPorEstadoProveedor ? orderDir : null,
+    }),
+    orderBy,
+    orderDir,
+    { hoy, nombreModulo: new Map(modulos.map((m) => [m.id, m.nombre])) }
+  );
 
   // Solo admins reciben las tareas. Sin los textos largos (se piden al abrir el detalle).
   const tareasProveedor: TareaLista[] = canEdit ? (tareasRes.data ?? []) : [];
   const paresGlpi = canEdit ? construirParesGlpi(paresRes.data ?? []) : [];
   // Ids de tareas existentes (para la pestaña "Caso proveedor" de la tabla de casos).
   const idsTareas = canEdit ? Array.from(mapa.keys()) : undefined;
-  // "Hoy" se calcula una sola vez aquí: ver hoyEnBogota.
-  const hoy = hoyEnBogota();
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -170,7 +163,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
 
       <CasosFilters estadosProveedor={estadosProveedor} />
 
-      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} />
+      <CasosTable casos={casos} canEdit={canEdit} idsTareas={idsTareas} hoy={hoy} modulos={modulos} />
 
       <p className="text-sm text-muted-foreground">
         {casos.length} {casos.length === 1 ? "caso" : "casos"}
@@ -183,7 +176,7 @@ export default async function ProveedorPage({ searchParams }: ProveedorPageProps
             <ImportTareasDialog />
           </div>
           <ProveedorKpiCards tareas={tareasProveedor} />
-          <TareasProveedorTable tareas={tareasProveedor} paresGlpi={paresGlpi} canEdit={canEdit} hoy={hoy} />
+          <TareasProveedorTable tareas={tareasProveedor} paresGlpi={paresGlpi} canEdit={canEdit} hoy={hoy} modulos={modulos} />
         </section>
       )}
     </div>

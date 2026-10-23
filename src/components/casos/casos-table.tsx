@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ChevronsUpDown, Eye } from "lucide-react";
 import { updateCasosTipo, type CasoDetalle } from "@/app/casos/actions";
 import { toast } from "sonner";
+import { asignarModulo } from "@/app/modulos/actions";
+import { ModuloBadge, ModuloSelect, useModulos, type ModuloOpcion } from "@/components/modulos/modulo-select";
 
 import {
   Table,
@@ -31,9 +33,12 @@ import { diasCaso, filterBotTecnicos, formatFecha } from "@/lib/formato";
 import { limpiarCacheSalvo } from "@/lib/use-detalle-bajo-demanda";
 import { updateCasoProveedor } from "@/app/casos/actions";
 import { cn } from "@/lib/utils";
+import { DiasBadge } from "@/components/dias-badge";
+import { COLUMNAS_ORDENABLES, type ColumnaOrdenable } from "@/lib/casos-orden";
 const TIPO_CLASS: Record<string, string> = {
   "Requerimiento": "border-transparent bg-[#1a3d96] text-white",
   "Incidencia":    "border-transparent bg-[#ea580c] text-white",
+  "Proyecto":      "border-transparent bg-[#0f766e] text-white",
 };
 
 const ESTADO_INTERNO_CLASS: Record<string, string> = {
@@ -63,21 +68,10 @@ const ESTADO_PROVEEDOR_CLASS: Record<string, string> = {
   Caducada: "",
 };
 
-// Whitelist de columnas ordenables: debe coincidir con la de src/app/casos/page.tsx.
-const SORTABLE_COLUMNS = [
-  "id_glpi",
-  "titulo",
-  "estado_interno",
-  "categoria",
-  "solicitante",
-  "tecnico_asignado",
-  "fecha_apertura",
-  "fecha_cierre",
-  "urgencia",
-  "estado_proveedor",
-] as const;
+// Whitelist de columnas ordenables: compartida con las páginas (src/lib/casos-orden.ts).
+const SORTABLE_COLUMNS = COLUMNAS_ORDENABLES;
 
-type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
+type SortableColumn = ColumnaOrdenable;
 type OrderDir = "asc" | "desc";
 
 const DEFAULT_ORDER_BY: SortableColumn = "fecha_apertura";
@@ -96,6 +90,7 @@ function SortableHead({
   orderDir,
   onSort,
   className,
+  title,
   children,
 }: {
   column: SortableColumn;
@@ -103,11 +98,12 @@ function SortableHead({
   orderDir: OrderDir;
   onSort: (column: SortableColumn) => void;
   className?: string;
+  title?: string;
   children: React.ReactNode;
 }) {
   const active = orderBy === column;
   return (
-    <TableHead className={className}>
+    <TableHead className={className} title={title}>
       <button
         type="button"
         onClick={() => onSort(column)}
@@ -133,9 +129,12 @@ export function CasosTable({
   canEdit,
   idsTareas,
   hoy,
+  modulos: modulosIniciales,
 }: {
   casos: CasoListaConEstado[];
   canEdit: boolean;
+  // Catálogo de módulos (una lectura por página, ver cargarModulos).
+  modulos: ModuloOpcion[];
   // yyyy-MM-dd en hora de Bogotá, calculado en el servidor (ver hoyEnBogota).
   hoy: string;
   // id_tarea de las tareas del proveedor que existen (sin filtros). Solo se
@@ -158,6 +157,12 @@ export function CasosTable({
   const casoDetalleIdRef = useRef<string | null>(null);
   casoDetalleIdRef.current = casoDetalleId;
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
+  const modulosCtl = useModulos(modulosIniciales, {
+    onEliminado: (id) => {
+      setRows((prev) => prev.map((r) => (r.modulo_id === id ? { ...r, modulo_id: null } : r)));
+      setCasoDetalle((prev) => (prev && prev.modulo_id === id ? { ...prev, modulo_id: null } : prev));
+    },
+  });
   const compact = !!searchParams.get("compact");
 
   // Solo admins reciben ids de tareas: para el resto el set queda vacío.
@@ -237,6 +242,30 @@ export function CasosTable({
     });
   }
 
+  // Edición optimista; la acción replica el módulo en la tarea emparejada del
+  // proveedor y revalida ambas páginas. Si falla se vuelve a lo del servidor.
+  function handleModulo(ids: string[], moduloId: string | null) {
+    const sel = new Set(ids);
+    setRows((prev) => prev.map((r) => (sel.has(r.id) ? { ...r, modulo_id: moduloId } : r)));
+    setCasoDetalle((prev) => (prev && sel.has(prev.id) ? { ...prev, modulo_id: moduloId } : prev));
+    startTransition(async () => {
+      const res = await asignarModulo("casos", ids, moduloId);
+      if (res.error !== undefined) {
+        setRows(casos);
+        setCasoDetalle((prev) => (prev ? (casos.find((c) => c.id === prev.id) ?? prev) : prev));
+        toast.error(res.error);
+        return;
+      }
+      toast.success(moduloId ? "Módulo asignado" : "Módulo eliminado");
+    });
+  }
+
+  function handleBulkModulo(moduloId: string | null) {
+    const ids = Array.from(selectedIds);
+    setSelectedIds(new Set());
+    handleModulo(ids, moduloId);
+  }
+
   function handleEscaladoChange(id: string, value: string) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, caso_escalado_proveedor: value } : r)));
   }
@@ -289,24 +318,42 @@ export function CasosTable({
             <SortableHead column="tecnico_asignado" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               Técnico
             </SortableHead>
-            <TableHead className="text-white">Ubicación</TableHead>
+            <SortableHead column="ubicacion" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Ubicación
+            </SortableHead>
             <SortableHead column="fecha_apertura" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               F. Apertura
             </SortableHead>
             <SortableHead column="fecha_cierre" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               F. Cierre
             </SortableHead>
-            <TableHead
-              className="text-white"
+            <SortableHead
+              column="dias"
+              orderBy={orderBy}
+              orderDir={orderDir}
+              onSort={handleSort}
               title="Abiertos: días desde la apertura hasta hoy. Cerrados: días de la apertura al cierre."
             >
               Días
-            </TableHead>
+            </SortableHead>
             <SortableHead column="urgencia" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
               Urgencia
             </SortableHead>
-            <TableHead className="text-white">Tipo</TableHead>
-            <TableHead className={cn(compact ? "min-w-[100px]" : "min-w-[180px]", "text-white")}>Caso escalado proveedor</TableHead>
+            <SortableHead column="tipo" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Tipo
+            </SortableHead>
+            <SortableHead column="modulo" orderBy={orderBy} orderDir={orderDir} onSort={handleSort}>
+              Módulo
+            </SortableHead>
+            <SortableHead
+              column="caso_escalado_proveedor"
+              orderBy={orderBy}
+              orderDir={orderDir}
+              onSort={handleSort}
+              className={compact ? "min-w-[100px]" : "min-w-[180px]"}
+            >
+              Caso escalado proveedor
+            </SortableHead>
             <SortableHead
               column="estado_proveedor"
               orderBy={orderBy}
@@ -378,15 +425,8 @@ export function CasosTable({
               </TableCell>
               <TableCell>{formatFecha(caso.fecha_apertura)}</TableCell>
               <TableCell>{formatFecha(caso.fecha_cierre)}</TableCell>
-              <TableCell
-                className="tabular-nums"
-                title={diasCaso(hoy, caso).cerrado ? "Días hasta el cierre" : "Días abierto"}
-              >
-                {(() => {
-                  const { dias, cerrado } = diasCaso(hoy, caso);
-                  if (dias === null) return "—";
-                  return <span className={cn(cerrado && "text-muted-foreground")}>{dias}</span>;
-                })()}
+              <TableCell title={diasCaso(hoy, caso).cerrado ? "Días hasta el cierre" : "Días abierto"}>
+                <DiasBadge dias={diasCaso(hoy, caso).dias} />
               </TableCell>
               <TableCell>
                 {caso.urgencia ? (
@@ -400,6 +440,24 @@ export function CasosTable({
                   <Badge variant="outline" className={cn(TIPO_CLASS[caso.tipo] ?? "border-dashed text-muted-foreground")}>
                     {caso.tipo}
                   </Badge>
+                ) : (
+                  <span className="text-muted-foreground text-xs">—</span>
+                )}
+              </TableCell>
+              <TableCell className={cn(compact ? "min-w-[90px]" : "min-w-[150px]")}>
+                {canEdit ? (
+                  <ModuloSelect
+                    ctl={modulosCtl}
+                    value={caso.modulo_id}
+                    disabled={isPending}
+                    onChange={(id) => handleModulo([caso.id], id)}
+                  />
+                ) : caso.modulo_id ? (
+                  modulosCtl.nombrePorId.get(caso.modulo_id) ? (
+                    <ModuloBadge id={caso.modulo_id} nombre={modulosCtl.nombrePorId.get(caso.modulo_id)!} />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )
                 ) : (
                   <span className="text-muted-foreground text-xs">—</span>
                 )}
@@ -454,6 +512,8 @@ export function CasosTable({
                     canEdit={canEdit}
                     cache={detallesRef.current}
                     onTipoChange={handleTipoDetalle}
+                    modulosCtl={modulosCtl}
+                    onModuloChange={(id) => handleModulo([casoDetalle.id], id)}
                     conTitulo
                   />
                 }
@@ -461,6 +521,7 @@ export function CasosTable({
                   <TareaDePar
                     idTarea={idTareaPar}
                     cache={tareaParRef.current}
+                    modulosCtl={modulosCtl}
                     casoGlpi={{ id_glpi: casoDetalle.id_glpi, titulo: casoDetalle.titulo }}
                     conTitulo
                   />
@@ -472,6 +533,8 @@ export function CasosTable({
                 canEdit={canEdit}
                 cache={detallesRef.current}
                 onTipoChange={handleTipoDetalle}
+                modulosCtl={modulosCtl}
+                onModuloChange={(id) => handleModulo([casoDetalle.id], id)}
               />
             )
           )}
@@ -503,12 +566,27 @@ export function CasosTable({
           </button>
           <button
             type="button"
+            onClick={() => handleBulkTipo("Proyecto")}
+            disabled={isPending}
+            className="rounded-md bg-[#0f766e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0f766e]/90 disabled:opacity-60"
+          >
+            Proyecto
+          </button>
+          <button
+            type="button"
             onClick={() => handleBulkTipo(null)}
             disabled={isPending}
             className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60"
           >
             Sin clasificar
           </button>
+          <ModuloSelect
+            ctl={modulosCtl}
+            etiqueta="Módulo…"
+            disabled={isPending}
+            onChange={handleBulkModulo}
+            className="h-9 w-auto min-w-[110px]"
+          />
           <button
             type="button"
             onClick={() => setSelectedIds(new Set())}

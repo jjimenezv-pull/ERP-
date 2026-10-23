@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { asignarModulo } from "@/app/modulos/actions";
+import { ModuloSelect, type ModulosCtl } from "@/components/modulos/modulo-select";
 import {
   getTareaDetalle,
   getTareaPorIdTarea,
   updateTareasTipo,
 } from "@/app/proveedor/import-actions";
 import { Badge } from "@/components/ui/badge";
+import { DiasBadge } from "@/components/dias-badge";
 import {
   Select,
   SelectContent,
@@ -31,11 +34,6 @@ const ESTADO_TAREA_CLASS: Record<string, string> = {
   "Caducada":          "border-transparent bg-[#94a3b8] text-white",
 };
 
-const ESTADOS_CERRADOS = new Set<string>(["Cerrada", "Caducada"]);
-
-// Desde cuántos días sin respuesta se resalta la celda (solo en tareas abiertas).
-const DIAS_SIN_RESPUESTA_ALERTA = 15;
-
 // Fila de la lista con los días calculados una vez (sirven para mostrar y ordenar).
 export type TareaFila = TareaLista & {
   dias_creacion: number | null;
@@ -50,16 +48,6 @@ export function conDias(t: TareaLista, hoy: string): TareaFila {
   };
 }
 
-// Días desde la última respuesta: tenue por defecto, resaltado si ya pasó el
-// umbral y la tarea sigue abierta (en una cerrada no es una alerta).
-export function claseDiasRespuesta(dias: number | null, estado: string | null) {
-  if (dias === null) return "text-muted-foreground";
-  const abierta = !estado || !ESTADOS_CERRADOS.has(estado);
-  return abierta && dias >= DIAS_SIN_RESPUESTA_ALERTA
-    ? "font-medium text-amber-700 dark:text-amber-400"
-    : "text-muted-foreground";
-}
-
 export function EstadoBadge({ estado }: { estado: string | null }) {
   if (!estado) return <>—</>;
   return (
@@ -67,11 +55,6 @@ export function EstadoBadge({ estado }: { estado: string | null }) {
       {estado}
     </Badge>
   );
-}
-
-function textoDias(dias: number | null): string {
-  if (dias === null) return "—";
-  return dias === 1 ? "1 día" : `${dias} días`;
 }
 
 // El export trae marcadores attachment:"image_...png" de adjuntos que no se
@@ -154,6 +137,8 @@ interface CuerpoProps {
   // Deshabilita el select mientras se guarda un cambio de tipo.
   guardando?: boolean;
   onTipoChange: (tipo: string | null) => void;
+  modulosCtl: ModulosCtl;
+  onModuloChange: (moduloId: string | null) => void;
   // Caso GLPI emparejado (para el campo "Caso GLPI relacionado"), si hay.
   casoGlpi: { id_glpi: number; titulo: string | null } | null;
   // Con pestañas el título del diálogo es el par; el de la tarea va dentro de su pestaña.
@@ -161,7 +146,7 @@ interface CuerpoProps {
 }
 
 // Cuerpo del detalle de una tarea del proveedor (sin lógica de carga).
-function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, onTipoChange, casoGlpi, conTitulo }: CuerpoProps) {
+function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, onTipoChange, modulosCtl, onModuloChange, casoGlpi, conTitulo }: CuerpoProps) {
   const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
@@ -214,15 +199,15 @@ function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, onTipoChang
           <Campo label="F. inicio"><p>{formatFecha(tarea.fecha_inicio)}</p></Campo>
           <Campo label="F. fin"><p>{formatFecha(tarea.fecha_fin)}</p></Campo>
           <Campo label="Última actualización"><p>{formatFechaHora(tarea.ultima_actualizacion)}</p></Campo>
-          <Campo label="Días desde creación"><p className="tabular-nums">{textoDias(tarea.dias_creacion)}</p></Campo>
+          <Campo label="Días desde creación"><DiasBadge dias={tarea.dias_creacion} /></Campo>
           <Campo label="Última respuesta" className="col-span-2">
             <p>
               {formatFecha(tarea.fecha_ultima_respuesta)}
               {tarea.dias_respuesta !== null && (
-                <span className={cn("tabular-nums", claseDiasRespuesta(tarea.dias_respuesta, tarea.estado))}>
+                <>
                   {" · "}
-                  {tarea.dias_respuesta === 0 ? "hoy" : `hace ${textoDias(tarea.dias_respuesta)}`}
-                </span>
+                  <DiasBadge dias={tarea.dias_respuesta} />
+                </>
               )}
             </p>
           </Campo>
@@ -248,8 +233,21 @@ function TareaCuerpo({ tarea, detalle, cargando, canEdit, guardando, onTipoChang
                 <SelectItem value="sin_clasificar">Sin clasificar</SelectItem>
                 <SelectItem value="Requerimiento">Requerimiento</SelectItem>
                 <SelectItem value="Incidencia">Incidencia</SelectItem>
+                <SelectItem value="Proyecto">Proyecto</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Sección: Módulo */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Módulo</p>
+            <ModuloSelect
+              ctl={modulosCtl}
+              value={tarea.modulo_id}
+              disabled={guardando}
+              onChange={onModuloChange}
+              className="max-w-xs"
+            />
           </div>
         </>
       )}
@@ -311,6 +309,8 @@ export function TareaDetalle({
   canEdit,
   guardando,
   onTipoChange,
+  modulosCtl,
+  onModuloChange,
   casoGlpi,
   conTitulo,
 }: {
@@ -319,6 +319,8 @@ export function TareaDetalle({
   canEdit: boolean;
   guardando?: boolean;
   onTipoChange: (tipo: string | null) => void;
+  modulosCtl: ModulosCtl;
+  onModuloChange: (moduloId: string | null) => void;
   casoGlpi: { id_glpi: number; titulo: string | null } | null;
   conTitulo?: boolean;
 }) {
@@ -336,6 +338,8 @@ export function TareaDetalle({
       canEdit={canEdit}
       guardando={guardando}
       onTipoChange={onTipoChange}
+      modulosCtl={modulosCtl}
+      onModuloChange={onModuloChange}
       casoGlpi={casoGlpi}
       conTitulo={conTitulo}
     />
@@ -347,11 +351,13 @@ export function TareaDetalle({
 export function TareaDePar({
   idTarea,
   cache,
+  modulosCtl,
   casoGlpi,
   conTitulo,
 }: {
   idTarea: number;
   cache: Map<string, TareaPar | null>;
+  modulosCtl: ModulosCtl;
   casoGlpi: { id_glpi: number; titulo: string | null } | null;
   conTitulo?: boolean;
 }) {
@@ -380,6 +386,24 @@ export function TareaDePar({
       .finally(() => setGuardando(false));
   }
 
+  function handleModulo(moduloId: string | null) {
+    if (!par) return;
+    const previo = par.tarea.modulo_id;
+    const id = par.tarea.id;
+    actualizar(clave, (p) => (p ? { ...p, tarea: { ...p.tarea, modulo_id: moduloId } } : p));
+    setGuardando(true);
+    asignarModulo("tareas", [id], moduloId)
+      .then((res) => {
+        if (res.error !== undefined) {
+          actualizar(clave, (p) => (p ? { ...p, tarea: { ...p.tarea, modulo_id: previo } } : p));
+          toast.error(res.error);
+          return;
+        }
+        toast.success(moduloId ? "Módulo asignado" : "Módulo eliminado");
+      })
+      .finally(() => setGuardando(false));
+  }
+
   if (cargando) {
     return <TextoCargando />;
   }
@@ -398,6 +422,8 @@ export function TareaDePar({
       canEdit
       guardando={guardando}
       onTipoChange={handleTipo}
+      modulosCtl={modulosCtl}
+      onModuloChange={handleModulo}
       casoGlpi={casoGlpi}
       conTitulo={conTitulo}
     />

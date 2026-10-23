@@ -1,20 +1,12 @@
 # Resumen de sesión — 2026-09-08
 
-## Estado del repo ahora mismo
+## Estado del repo ahora mismo (actualizado 2026-10-21)
 
-- **`main` ya tiene todo mergeado y desplegado a producción** (`https://esatellite.netlify.app`, deploy `6aa1440c...`, confirmado `Deploy is live!`). La rama `pruebas` se mergeó con `--no-ff` (commit `0a34fe6`) y se hizo push + `netlify deploy --prod`.
-- Commits que quedaron en producción con esta sesión (además del fix de RLS y el primer overlap fix, que ya estaban):
-  - fix gráfico de carga por técnico (splitTecnicos partía por `<br>`, los datos usan `", "`; ahora además filtra solo a los 2 técnicos reales del equipo).
-  - números de SLA/backlog/resolución/escalados con tamaño fijo compartido (no responsivo por contenedor — ver nota de diseño abajo).
-  - reestructura KPI row: chart de estado bajó a fila 2 (junto a casos abiertos más antiguos), KPI de "Escalados a proveedor" agregado, tarjeta de resolución más ancha con separadores entre Promedio/Mediana/P90.
-  - "Top 5 solicitantes" quedó solo pero a ancho completo en "Detalle accionable".
-- Working tree limpio, `.env.local` tiene `SUPABASE_SERVICE_ROLE_KEY` (local, gitignored — no está en git).
-- La rama `pruebas` sigue existiendo en el remoto (ya mergeada) — se puede borrar cuando se confirme que ya no hace falta.
-- El CLI de Netlify (`netlify-cli@17`, instalado vía `npx netlify-cli@17`) quedó autenticado en esta máquina — se puede seguir publicando previews o producción con:
-  ```
-  npx netlify-cli@17 deploy --site 9b82e847-0dc7-42a4-a2b1-473af5d58f05 --build --message "..."
-  ```
-  (sin `--prod` = draft, no toca producción; con `--prod` sí publica).
+- **`main` en `e5eda96`, subido a GitHub.** El sitio Netlify `esatellite` (`https://esatellite.netlify.app`) **despliega desde GitHub: un `git push origin main` publica en producción** (ya no se usa el deploy por CLI; el flujo es commit local -> confirmación del usuario -> push). Para probar sin tocar producción: `npx netlify-cli@17 deploy --site 9b82e847-0dc7-42a4-a2b1-473af5d58f05 --build` (sin `--prod` = borrador).
+- Lo último en producción: rendimiento (`/casos` de 4,22 s a ~1,2 s), seguridad de las funciones de roles, campo `tipo`, y en Casos Proveedor la nueva estructura del export con columnas calculadas, detalle expandible y pestañas Caso proveedor / Caso GLPI, más la columna Días en GLPI (ver secciones de abajo, en orden cronológico).
+- Base de datos: Supabase `us-west-2`. Las migraciones están en `supabase/migrations/` y se aplican a mano en el SQL editor (o vía MCP), todas ya aplicadas.
+- Servidor local detenido; working tree limpio. `.env.local` (gitignored) tiene las claves; las variables necesarias están documentadas en `README.md`.
+- Nota de proceso: los commits locales son libres, pero **pedir confirmación antes del push** (publica).
 
 ## Actualización 2026-09-09/10
 
@@ -258,11 +250,19 @@ El proveedor cambió el export de tareas (`Tareas_5.csv`, 15 columnas: ID de tar
 Nueva columna **Días** (después de F. Cierre) en `casos-table.tsx`, visible en `/casos` y en la tabla de casos de `/proveedor`: en casos **abiertos** son los días desde la apertura hasta hoy; en **cerrados**, los días de la apertura al cierre (así no siguen creciendo; en gris). Un cerrado sin fecha de cierre muestra "—". "Hoy" se calcula en el servidor en hora de Bogotá (`hoyEnBogota`) y entra como prop `hoy`. Lógica en `diasCaso`/`diasEntre` (`src/lib/formato.ts`). No es ordenable (es calculada; el orden de esta tabla se hace en el servidor sobre columnas reales).
 **No se agregó "días desde última respuesta" a GLPI:** el export de GLPI no trae esa fecha (solo `seguimientos`, texto libre de correos sin formato de fecha fijo, presente en 53 de 323 casos). Si se quiere, hay que pedir al export una columna de "última actualización".
 
+## Actualización 2026-10-22 — Badges de Días y Módulo con el estilo de Estado/Urgencia/Tipo + regla de diseño
+
+Los badges de **Días** y de **Módulo** eran pastel (`bg-green-100`, `bg-blue-100`...) y no se parecían a Estado/Urgencia/Tipo. Ahora usan `Badge variant="outline"` + `border-transparent bg-[var(--token)] text-[var(--token-fg)]` (relleno sólido, texto de contraste). Tokens nuevos en `globals.css` (claro y oscuro): `--dias-1..5` (+`-fg`; reutilizan por `var()` verde = curso, amarillo = espera, naranja = urgencia alta, rojo = muy alta, y un rojo oscuro nuevo para 31+) y `--modulo-1..10` (+`-fg`; colores distintos a los de estado/urgencia/tipo, contraste de texto >= 4,5:1). Umbrales y comportamiento sin dato de Días sin cambios; el módulo sigue eligiendo color por hash estable del id. Archivos: `src/lib/dias.ts`, `src/components/modulos/modulo-select.tsx` (badge y punto de color del selector), `src/app/globals.css`.
+**Regla para futuros diseños** escrita en `CLAUDE.md` (sección "Regla de diseño: badges y colores"): todo badge de color usa esa variante y esos tokens; nada de pasteles ni hex sueltos.
+
 ## Pendiente para la próxima sesión
 
 1. ~~**Reimportar GLPI** para poblar `seguimientos` en los casos existentes~~ — **COMPLETADO con éxito** (reimport ejecutado en producción, todo funcionó correctamente).
-2. **KPIs de tipo** (Requerimiento/Incidencia) una vez haya datos clasificados.
-3. **Rediseño PPTX** — diseño actual no convence; agregar distribución de tipo al reporte.
+2. **Reimportar `Tareas_5.csv`** (Casos Proveedor -> Importar CSV, debe dar 11 filas listas y 0 errores) para llenar las columnas nuevas (tipo de tarea, última actualización, descripción, last comments, días) de las tareas existentes; mientras tanto muestran "—".
+3. **KPIs de tipo** (Requerimiento/Incidencia): ya hay datos (casos GLPI: 292 Requerimiento / 31 Incidencia; tareas proveedor: 19 / 11, 3 sin clasificar al 2026-10-21). Falta definir qué KPIs (distribución, tendencia semanal por tipo, tiempo de resolución por tipo) y si incluye tareas del proveedor.
+4. **Rediseño PPTX** — diseño actual no convence; agregar distribución de tipo al reporte (reutilizar las cifras de los KPIs).
+5. Opcional: mover Supabase de `us-west-2` a `us-east-1` (junto a las funciones de Netlify en IAD, no editable en el plan gratuito) para bajar la latencia restante (~1,2 s en `/casos`); implica proyecto nuevo y migrar datos/usuarios.
+6. Opcional: "días desde última respuesta" en GLPI exige una columna de última actualización en el export de GLPI.
 4. Activar "Leaked Password Protection" en Supabase si algún día se sube a un plan de pago.
 5. Bloqueo de cuenta por intentos fallidos (Supabase free no lo soporta; requiere lógica custom o plan Pro).
 6. Resto de la hoja de ruta original sin tocar: cabeceras de seguridad HTTP, paginación, tests/CI, upgrade de Next.js, reemplazar `xlsx`, auditoría de ediciones (editado_por/editado_en).
